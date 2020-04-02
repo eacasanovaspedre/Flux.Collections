@@ -13,40 +13,6 @@ and 'T Stream = private { mutable DelayedCell: 'T Cell Suspended }
 
 exception ElementNotFoundException of string
 
-[<AutoOpen>]
-module private Helpers =
-
-    let inline stream delayedCell = { DelayedCell = delayedCell }
-
-    let cell z =
-        let inline delayedCell { DelayedCell = delayedCell } = delayedCell
-        let inline mutateCell newDelayedCell (z: 'T Stream) = z.DelayedCell <- newDelayedCell
-
-        match delayedCell z with
-        | Value v -> v
-        | _ ->
-            System.Threading.Monitor.Enter z
-            try
-                match delayedCell z with
-                | Generator f ->
-                    try
-                        let value = f ()
-                        mutateCell (Value value) z
-                        value
-                    with ex ->
-                        mutateCell (Failure ex) z
-                        reraise ()
-                | Value v -> v
-                | Failure ex -> raise ex
-            finally
-                System.Threading.Monitor.Exit z
-
-    let inline fromCell cell = stream (Value cell)
-
-    let inline suspended generator = stream (Generator generator)
-
-    let inline delayed streamGenerator = streamGenerator >> cell |> suspended
-
 module private Cell =
     
     let inline isNil c = match c with | Nil _ -> true | _ -> false
@@ -58,9 +24,45 @@ module private Cell =
 
 module Stream =
 
+    [<AutoOpen>]
+    module private Helpers =
+
+        let inline stream delayedCell = { DelayedCell = delayedCell }
+
+        let cell z =
+            let inline delayedCell { DelayedCell = delayedCell } = delayedCell
+            let inline mutateCell newDelayedCell (z: 'T Stream) = z.DelayedCell <- newDelayedCell
+
+            match delayedCell z with
+            | Value v -> v
+            | _ ->
+                System.Threading.Monitor.Enter z
+                try
+                    match delayedCell z with
+                    | Generator f ->
+                        try
+                            let value = f ()
+                            mutateCell (Value value) z
+                            value
+                        with ex ->
+                            mutateCell (Failure ex) z
+                            reraise ()
+                    | Value v -> v
+                    | Failure ex -> raise ex
+                finally
+                    System.Threading.Monitor.Exit z
+
+        let inline fromCell cell = stream (Value cell)
+
+        let inline suspended generator = stream (Generator generator)
+
+        let inline delayed streamGenerator = streamGenerator >> cell |> suspended
+
     let empty<'T> = stream (Value (Cell<'T>.Nil))
 
-    let isEmtpy z = (cell >> Cell.isNil) z
+    let isEmpty z = z |> cell |> Cell.isNil
+
+    let inline isNotEmpty z = z |> isEmpty |> not
 
     let singleton v = fromCell (Cons (v, empty))
 
@@ -69,23 +71,23 @@ module Stream =
         | Cons (h, _) -> h
         | _           -> invalidOp "Empty LazyList, no head"
 
-    let tryHead z = (cell >> Cell.mapToOption fst) z
+    let maybeHead z = (cell >> Cell.mapToOption fst) z
 
     let tail z =
         match cell z with
         | Cons (_, tail) -> tail
         | _              -> invalidOp "Empty LazyList, no tail."
 
-    let tryTail z = (cell >> Cell.mapToOption snd) z
+    let maybeTail z = (cell >> Cell.mapToOption snd) z
 
     let uncons z =
         match cell z with
         | Cons (h, t) -> h, t
         | _           -> invalidOp "Empty LazyList, no head and no tail."
 
-    let tryUncons z = (cell >> Cell.mapToOption id) z
+    let maybeUncons z = (cell >> Cell.mapToOption id) z
 
-    let tryLast z =
+    let maybeLast z =
         let rec last' z prev =
             match cell z with
             | Cons (x, z') -> last' z' x
@@ -95,7 +97,7 @@ module Stream =
         | Cons (x, z') -> Some (last' z' x)
 
     let last z =
-        match tryLast z with
+        match maybeLast z with
         | Some l -> l
         | None -> invalidOp "Empty LazyList, no last element."
 
@@ -354,10 +356,10 @@ module Stream =
             then z
             else delayed <| fun _ -> skip' n z
 
-    let rec trySkip n z =
+    let rec maybeSkip n z =
         if n <= 0 
             then Some z
-            else cell z |> Cell.bindToOption (snd >> trySkip (n - 1))
+            else cell z |> Cell.bindToOption (snd >> maybeSkip (n - 1))
 
     let skipWhile f z =
         let rec skipWhile' z _ =
@@ -381,10 +383,10 @@ module Stream =
         | Cons (_, z')         -> find f z'
         | Nil                  -> raise (ElementNotFoundException "No element that satisfies the given predicate was found in the collection.")
 
-    let rec tryFind f z =
+    let rec maybeFind f z =
         match cell z with
         | Cons (x, _) when f x -> Some x
-        | Cons (_, z')         -> tryFind f z'
+        | Cons (_, z')         -> maybeFind f z'
         | Nil                  -> None
 
     let rec pick f z =
@@ -395,12 +397,12 @@ module Stream =
             | None   -> pick f z'
         | Nil -> raise (ElementNotFoundException "No element that satisfies the given chooser was found in the collection.")
 
-    let rec tryPick f z =
+    let rec maybePick f z =
         match cell z with
         | Cons (x, z') ->
             match f x with
             | Some v -> v
-            | None   -> tryPick f z'
+            | None   -> maybePick f z'
         | Nil -> None
 
     let findIndex f z =
@@ -411,13 +413,13 @@ module Stream =
             | Nil                  -> raise (ElementNotFoundException "No element that satisfies the given predicate was found in the collection.")
         findIndex' 0 z
 
-    let tryFindIndex f z =
-        let rec tryFindIndex' i z =
+    let maybeFindIndex f z =
+        let rec maybeFindIndex' i z =
             match cell z with
             | Cons (x, _) when f x -> Some i
-            | Cons (_, z')         -> tryFindIndex' (i + 1) z'
+            | Cons (_, z')         -> maybeFindIndex' (i + 1) z'
             | Nil                  -> None
-        tryFindIndex' 0 z
+        maybeFindIndex' 0 z
 
     let findIndex64 f z =
         let rec findIndex64' i z =
@@ -427,18 +429,18 @@ module Stream =
             | Nil                  -> raise (ElementNotFoundException "No element that satisfies the given predicate was found in the collection.")
         findIndex64' 0L z
 
-    let tryFindIndex64 f z =
-        let rec tryFindIndex64' i z =
+    let maybeFindIndex64 f z =
+        let rec maybeFindIndex64' i z =
             match cell z with
             | Cons (x, _) when f x -> Some i
-            | Cons (_, z')         -> tryFindIndex64' (i + 1L) z'
+            | Cons (_, z')         -> maybeFindIndex64' (i + 1L) z'
             | Nil                  -> None
-        tryFindIndex64' 0L z
+        maybeFindIndex64' 0L z
 
     let exactlyOne z =
         match cell z with
         | Cons (x, z') 
-            when isEmtpy z' -> x
+            when isEmpty z' -> x
         | Cons _            -> invalidOp "The supplied LazyList contains more than one element."
         | Nil               -> invalidOp "The supplied LazyList is empty."
 
@@ -530,7 +532,7 @@ module Stream =
 
     let delayedFromPair f = suspended <| fun _ -> let (h, t) = f () in Cons (h, t)
 
-    let delayed = delayed
+    let delayed g = delayed g
 
     [<AutoOpen>]
     module ActivePattern =
