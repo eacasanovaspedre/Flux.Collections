@@ -11,6 +11,7 @@
     <Compile Include="RealTimeQueue.fs" />
     <Compile Include="SkewBinaryRandomAccessList.fs" />
     <Compile Include="SkewBinomialHeap.fs" />
+    <Compile Include="HashArrayMappedTrie.fs" />
   </ItemGroup>
   <Import Project=".paket\Paket.Restore.targets" />
 </Project>
