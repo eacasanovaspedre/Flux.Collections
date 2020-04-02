@@ -3,11 +3,13 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Utils.fs" />
     <Compile Include="Bit.fs" />
     <Compile Include="Bitmap.fs" />
     <Compile Include="Stream.fs" />
     <Compile Include="Queue.fs" />
     <Compile Include="RealTimeQueue.fs" />
+    <Compile Include="SkewBinaryRandomAccessList.fs" />
   </ItemGroup>
   <Import Project=".paket\Paket.Restore.targets" />
 </Project>
