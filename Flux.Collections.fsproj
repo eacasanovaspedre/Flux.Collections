@@ -6,6 +6,7 @@
     <Compile Include="Bit.fs" />
     <Compile Include="Bitmap.fs" />
     <Compile Include="Stream.fs" />
+    <Compile Include="Queue.fs" />
   </ItemGroup>
   <Import Project=".paket\Paket.Restore.targets" />
 </Project>
