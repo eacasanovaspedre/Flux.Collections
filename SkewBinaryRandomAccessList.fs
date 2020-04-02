@@ -222,7 +222,7 @@ module SkewList =
 
     let isEmpty list = SkewListProxy.isEmpty list
 
-    let inline isNotEmpty list = not <| SkewListProxy.isEmpty list
+    let inline isNotEmpty list = not <| isEmpty list
 
     let count list = SkewListProxy.count list
 
@@ -323,7 +323,7 @@ module SkewVector =
 
     let isEmpty list = SkewListProxy.isEmpty list
 
-    let isNotEmpty list = not <| SkewListProxy.isEmpty list
+    let inline isNotEmpty list = not <| isEmpty list
 
     let count list = SkewListProxy.count list
 
