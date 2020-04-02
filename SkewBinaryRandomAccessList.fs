@@ -218,9 +218,11 @@ module private SkewListProxy =
 
 module SkewList =
 
-    let empty: SkewListVector<'T> = SkewListProxy.empty
+    let empty = SkewListProxy.empty
 
     let isEmpty list = SkewListProxy.isEmpty list
+
+    let inline isNotEmpty list = not <| SkewListProxy.isEmpty list
 
     let count list = SkewListProxy.count list
 
@@ -320,6 +322,8 @@ module SkewVector =
     let empty: SkewListVector<'T> = SkewListProxy.empty
 
     let isEmpty list = SkewListProxy.isEmpty list
+
+    let isNotEmpty list = not <| SkewListProxy.isEmpty list
 
     let count list = SkewListProxy.count list
 
