@@ -10,6 +10,7 @@
     <Compile Include="Queue.fs" />
     <Compile Include="RealTimeQueue.fs" />
     <Compile Include="SkewBinaryRandomAccessList.fs" />
+    <Compile Include="SkewBinomialHeap.fs" />
   </ItemGroup>
   <Import Project=".paket\Paket.Restore.targets" />
 </Project>
