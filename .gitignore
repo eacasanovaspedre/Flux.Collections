@@ -5,3 +5,4 @@ paket-files
 logs/
 out/
 .fake
+.vs

@@ -35,27 +35,32 @@ type Hamt<'K, 'V when 'K: equality> =
     | Empty
     | Trie of root: Node<'K, 'V> * count: int
 
-    interface System.Collections.IEnumerable with
-        member this.GetEnumerator() =
-            upcast (this
-                    |> Hamt.toSeq
-                    |> Enumerable.enumerator)
+    interface IReadOnlyDictionary<'K, 'V> with
 
-    interface IEnumerable<Entry<'K, 'V>> with
-        member this.GetEnumerator() =
+        member this.GetEnumerator(): IEnumerator<KeyValuePair<'K, 'V>> =
             this
             |> Hamt.toSeq
+            |> Seq.map (fun entry -> KeyValuePair(Hamt.Entry.key entry, Hamt.Entry.value entry))
             |> Enumerable.enumerator
 
-//interface IReadOnlyDictionary<'K, 'V> with
-//    member this.ContainsKey key = Hamt.containsKey key this
-//    member this.Count = Hamt.count this
-//    member this.GetEnumerator() = raise (System.NotImplementedException())
-//    member this.Item
-//        with get (key) = raise (System.NotImplementedException())
-//    member this.Keys = raise (System.NotImplementedException())
-//    member this.TryGetValue(key, value) = raise (System.NotImplementedException())
-//    member this.Values = raise (System.NotImplementedException())
+        member this.GetEnumerator(): System.Collections.IEnumerator =
+            upcast (Enumerable.enumerator (this :> IEnumerable<_>))
+
+        member this.ContainsKey key = Hamt.containsKey key this
+
+        member this.Count = Hamt.count this
+
+        member this.Item
+            with get key = Hamt.find key this
+
+        member this.Keys = Hamt.keys this
+
+        member this.TryGetValue(key: 'K, value: byref<'V>): bool =
+            match Hamt.maybeFind key this with
+            | Some v -> value <- v; true
+            | None -> false
+
+        member this.Values = this |> Hamt.keys |> Seq.map (fun k -> Hamt.find k this)
 
 module Hamt =
     open Prefix
@@ -115,7 +120,6 @@ module Hamt =
 
     module private Node =
 
-        open Prefix
         open Entry
         open CollisionHelpers
         open Bitmap
@@ -163,8 +167,7 @@ module Hamt =
                     let (newChild, outcome) = add entry entryHash (nextLayerPrefix prefix) children.[arrayIndex]
                     Branch(bitmap, Array.put newChild arrayIndex children), outcome
                 else
-                    Branch(Bitmap.setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children),
-                    AddOutcome.Added
+                    Branch(setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), Added
 
         let rec containsKey targetKey targetHash prefix =
             function
@@ -181,6 +184,7 @@ module Hamt =
                 else
                     false
 
+        //TODO: Add Find
         let rec tryFind targetKey targetHash prefix node =
             match node with
             | Leaf(Entry(key, value)) when key = targetKey -> Some value
@@ -261,7 +265,7 @@ module Hamt =
             let hash = uhash key
             Node.containsKey key hash (fullPrefixFromHash hash) root
 
-    let tryFind key =
+    let maybeFind key =
         function
         | Empty -> None
         | Trie(root, _) ->
@@ -269,9 +273,9 @@ module Hamt =
             Node.tryFind key hash (fullPrefixFromHash hash) root
 
     let find key hamt =
-        match tryFind key hamt with
+        match maybeFind key hamt with
         | Some value -> value
-        | None -> failwith "Improve this exception"
+        | None -> failwith "Element not found"
 
     let remove key hamt =
         match hamt with
