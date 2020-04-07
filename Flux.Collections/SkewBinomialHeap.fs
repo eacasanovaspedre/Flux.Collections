@@ -1,3 +1,5 @@
+//I prefer this over recursive namespaces. If one day this becomes a compile error I will be forced to change it. I hate recursive namespaces, it breaks F# linear dependencies.
+#nowarn "60"#nowarn "69" // Interface implementations in augmentations are now deprecated. Interface implementations should be given on the initial declaration of a type.
 namespace Flux.Collections
 
 open System.Collections.Generic
@@ -107,154 +109,13 @@ module private SBHTreeRoot =
 //****************************************************************************************************
 /// A SkewBinomialHeap is a priority queue where elements are inserted in any order, using "insert" and are
 /// extracted in either ascending or descending order using "head", "peek", "tail", "pop" or any of their
-/// "try" variants. The main advantage of the SkewBinomialHeap over the BinomialHeap is that it supports
+/// "maybe" and "try" variants. The main advantage of the SkewBinomialHeap over the BinomialHeap is that it supports
 /// insertions in constant time O(1). (Based on "Purely Functional Data Structures" - 1996 by Chris Okasaki)
-// type SkewBinomialHeap<'T when 'T: comparison> private (count, descending, roots: 'T SBHTreeRoot list) =
-
-//     static let hashElements = 20
-
-//     // Though mutable, this field is only accessed through GetHashCode and is assigned a value depending only on the other fields of the heap
-//     // and since those are inmutable the heap is logically inmutable
-//     let mutable hash = None
-
-//     new() = SkewBinomialHeap(0, false, [])
-
-//     new(descending) = SkewBinomialHeap(0, descending, [])
-
-//     member private __.Roots = roots
-
-//     member __.Count = count
-
-//     member __.IsDescending = descending
-
-//     member __.IsEmpty = count = 0
-
-//     member __.Insert value = SkewBinomialHeap(count + 1, descending, SBHTreeRoot.insert descending value roots)
-
-//     member __.TryMerge(other: 'T SkewBinomialHeap) =
-//         if descending = other.IsDescending then
-//             Some
-//                 (SkewBinomialHeap
-//                     (count + other.Count, descending,
-//                      SBHTreeRoot.mergeRoots descending (SBHTreeRoot.normalize descending roots)
-//                          (SBHTreeRoot.normalize descending other.Roots)))
-//         else
-//             None
-
-//     member this.Merge(other: 'T SkewBinomialHeap) =
-//         match this.TryMerge other with
-//         | Some h -> h
-//         | _ -> raise (IncompatibleMergeException "Can not merge two heaps with diferent comparison methods")
-
-//     member __.TryHead() =
-//         if count = 0
-//         then None
-//         else Some(SBHTreeRoot.findMinRootItem descending roots)
-
-//     member this.Head() =
-//         match this.TryHead() with
-//         | Some h -> h
-//         | _ -> invalidOp "Empty heap, no head"
-
-//     member __.TryTail() =
-//         if count = 0
-//         then None
-//         else Some(SkewBinomialHeap(count - 1, descending, SBHTreeRoot.uncons descending roots |> snd))
-
-//     member this.Tail() =
-//         match this.TryTail() with
-//         | Some t -> t
-//         | _ -> invalidOp "Empty heap, no tail"
-
-//     member this.TryUncons() =
-//         if this.IsEmpty
-//         then None
-//         else let (h, t) = SBHTreeRoot.uncons descending roots in Some(h, SkewBinomialHeap(count - 1, descending, t))
-
-//     member this.Uncons() =
-//         match this.TryUncons() with
-//         | Some t -> t
-//         | None -> invalidOp "Empty heap, no head and no tail"
-
-//     member __.ToList() = SBHTreeRoot.toListOrdered descending roots
-
-//     interface 'T SkewBinomialHeap System.IEquatable with
-//         member this.Equals other =
-//             descending = other.IsDescending && count = other.Count && this.ToList() = other.ToList()
-
-//     override this.Equals other =
-//         match other with
-//         | :? ('T SkewBinomialHeap System.IEquatable) as eheap -> eheap.Equals this
-//         | _ -> false
-
-//     override __.GetHashCode() =
-//         match hash with
-//         | Some h -> h
-//         | None ->
-//             let rec hashIt n hash roots =
-//                 if n = 0 then
-//                     if descending then ~~~hash else hash
-//                 else
-//                     let h, t = SBHTreeRoot.uncons descending roots
-//                     hashIt (n - 1) (hash * 397 ^^^ Operators.hash h) t
-
-//             let h = hashIt (min hashElements count) (Operators.hash count) roots
-//             hash <- Some h
-//             h
-
-//     interface IEnumerable<'T> with
-//         member __.GetEnumerator() = (SBHTreeRoot.toListOrdered descending roots |> List.toSeq).GetEnumerator()
-
-//         member this.GetEnumerator(): System.Collections.IEnumerator = upcast (this :> _ seq).GetEnumerator()
-
-// interface IHeap<'T SkewBinomialHeap, 'T> with
-//     member this.Count() = this.Count
-
-//     member this.Head() = this.Head()
-
-//     member this.Insert value = this.Insert value
-
-//     member this.IsDescending = this.IsDescending
-
-//     member this.IsEmpty = this.IsEmpty
-
-//     member this.Length() = this.Count
-
-//     member this.Merge other = this.Merge other
-
-//     member this.Tail() = this.Tail()
-
-//     member this.TryGetHead() = this.TryHead()
-
-//     member this.TryGetTail() = this.TryTail()
-
-//     member this.TryMerge other = this.TryMerge other
-
-//     member this.TryUncons() = this.TryUncons()
-
-//     member this.Uncons() = this.Uncons()
-
-// interface IPriorityQueue<'T> with
-
-//     member this.Insert value = upcast this.Insert value
-
-//     member this.IsEmpty = this.IsEmpty
-
-//     member this.Length = this.Count
-
-//     member this.Peek() = this.Head()
-
-//     member this.Pop() =
-//         let head, tail = this.Uncons() in head, upcast tail
-
-//     member this.TryPeek() = this.TryHead()
-
-//     member this.TryPop() = this.TryUncons() |> Option.map (fun (h, t) -> h, upcast t)
-
 type SkewBinomialHeap<'T when 'T: comparison> =
     private { Count: int
               Descending: bool
               Roots: 'T SBHTreeRoot list }
+//interface IEnumerable<'T>
 
 module SkewBinomialHeap =
 
@@ -394,9 +255,24 @@ module SkewBinomialHeap =
     /// O(n * log n) - Returns and ordered list of the elements in the heap.
     let toList { Descending = descending; Roots = roots } = SBHTreeRoot.toListOrdered descending roots
 
-    [<AutoOpen>]
-    module ActivePatterns =
-        let inline (|Cons|Nil|) heap =
-            match maybeUncons heap with
-            | Some(h, t) -> Cons(h, t)
-            | None -> Nil
+    let rec toSeq heap =
+        if isEmpty heap then
+            Seq.empty
+        else
+            let h, t = uncons heap
+            seq {
+                yield h
+                yield! toSeq t
+            }
+
+    let toSeq1 heap =
+        Seq.unfold maybeUncons heap
+
+    let inline (|Cons|Nil|) heap =
+        match maybeUncons heap with
+        | Some(h, t) -> Cons(h, t)
+        | None -> Nil
+
+// type SkewBinomialHeap<'T when 'T: comparison> with
+//     interface IEnumerable<'T> with
+//         member this.GetEnumerator(): IEnumerator<_> =
