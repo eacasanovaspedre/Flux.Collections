@@ -141,8 +141,7 @@ let tests =
                   f i
               |> isSuspended
 
-          testProperty
-              "initInfinite creates an infinite stream using the item supplier. The first m items are correct"
+          testProperty "initInfinite creates an infinite stream using the item supplier. The first m items are correct"
           <| fun (NonNegativeInt n) f -> infiniteSequenceEqual (initInfinite f) (Seq.initInfinite f)
 
           testProperty "initInfinite does not evaluate the function" <| fun f ->
@@ -290,7 +289,8 @@ let tests =
               choose f z
               |> asList = List.choose f (asList z)
 
-          testProperty "choose chooses in a infinite stream" <| fun f (Infinite z) -> infiniteSequenceEqual (choose f z) (Seq.choose f z)
+          testProperty "choose chooses in a infinite stream"
+          <| fun f (Infinite z) -> infiniteSequenceEqual (choose f z) (Seq.choose f z)
 
           testProperty "choose returns an unevaluated stream" <| fun f z -> choose f z |> isSuspended
 
@@ -379,8 +379,7 @@ let tests =
               |> asList = (Seq.map2 f (asList z1) (asList z2) |> Seq.toList)
 
           testProperty "map2 works with infinite streams"
-          <| fun f (Infinite z1) (Infinite z2) ->
-              infiniteSequenceEqual (map2 f z1 z2) (Seq.map2 f z1 z2)
+          <| fun f (Infinite z1) (Infinite z2) -> infiniteSequenceEqual (map2 f z1 z2) (Seq.map2 f z1 z2)
 
           testProperty "map2 returns a suspended list" <| fun f z1 z2 -> map2 f z1 z2 |> isSuspended
 
@@ -448,8 +447,8 @@ let tests =
                   if not (isSuspended s) then Some((), tail s) else None) z
               |> Seq.length = n + 1
 
-          testProperty "skip throws when asked to skip a negative number of elements" <| fun z (PositiveInt n) -> 
-            throws<System.ArgumentException, _> <| lazy (skip -n z)
+          testProperty "skip throws when asked to skip a negative number of elements"
+          <| fun z (PositiveInt n) -> throws<System.ArgumentException, _> <| lazy (skip -n z)
 
           testProperty "skip is consistent with List's skip when there are enough elements in the stream to be skipped"
           <| fun (Sized(z, size)) (NonNegativeInt n) ->
