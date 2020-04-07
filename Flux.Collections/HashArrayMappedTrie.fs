@@ -10,12 +10,9 @@ type BitmapHolder = UInt64W
 type BitmapHolder = UInt32W
 #endif
 
-[<Struct>]
-type Entry<'K, 'T> = Entry of key: 'K * value: 'T
-
 type private Node<'K, 'T> =
-    | Leaf of Entry<'K, 'T>
-    | LeafWithCollisions of Entry<'K, 'T> list
+    | Leaf of KVEntry<'K, 'T>
+    | LeafWithCollisions of KVEntry<'K, 'T> list
     | Branch of Bitmap<BitmapHolder> * Node<'K, 'T> array
 
 [<Struct>]
@@ -40,7 +37,7 @@ type Hamt<'K, 'V when 'K: equality> =
         member this.GetEnumerator(): IEnumerator<KeyValuePair<'K, 'V>> =
             this
             |> Hamt.toSeq
-            |> Seq.map (fun entry -> KeyValuePair(Hamt.Entry.key entry, Hamt.Entry.value entry))
+            |> Seq.map (fun entry -> KeyValuePair(KVEntry.key entry, KVEntry.value entry))
             |> Enumerable.enumerator
 
         member this.GetEnumerator(): System.Collections.IEnumerator =
@@ -64,6 +61,7 @@ type Hamt<'K, 'V when 'K: equality> =
 
 module Hamt =
     open Prefix
+    open KVEntry
 
     module private Prefix =
 
@@ -84,15 +82,7 @@ module Hamt =
 
         let inline length (Prefix(_, length)) = length
 
-    module Entry =
-
-        let inline key (Entry(k, _)) = k
-
-        let inline value (Entry(_, v)) = v
-
     module private CollisionHelpers =
-        open Prefix
-        open Entry
 
         let collisionHash entries =
             entries
@@ -105,9 +95,9 @@ module Hamt =
             |> List.tryFindIndex (fun e -> key e = key entry)
             |> Option.map (fun index ->
                 match List.splitAt index entries with
-                | before, _ :: after -> before @ entry :: after, AddOutcome.Replaced
+                | before, _ :: after -> before @ entry :: after, Replaced
                 | _ -> failwith "Never")
-            |> Option.defaultWith (fun () -> entry :: entries, AddOutcome.Added)
+            |> Option.defaultWith (fun () -> entry :: entries, Added)
 
         let removeIfExists targetKey entries =
             entries
@@ -120,7 +110,6 @@ module Hamt =
 
     module private Node =
 
-        open Entry
         open CollisionHelpers
         open Bitmap
 
@@ -140,7 +129,7 @@ module Hamt =
 
         let rec add entry entryHash prefix node =
             match node with
-            | Leaf oldEntry when key entry = key oldEntry -> Leaf entry, AddOutcome.Replaced
+            | Leaf oldEntry when key entry = key oldEntry -> Leaf entry, Replaced
             | Leaf oldEntry ->
                 let oldHash =
                     oldEntry
@@ -171,10 +160,10 @@ module Hamt =
 
         let rec containsKey targetKey targetHash prefix =
             function
-            | Leaf(Entry(key, _)) when key = targetKey -> true
+            | Leaf(KVEntry(key, _)) when key = targetKey -> true
             | Leaf _ -> false
             | LeafWithCollisions entries when collisionHash entries = targetHash ->
-                List.exists (fun (Entry(key, _)) -> key = targetKey) entries
+                List.exists (fun (KVEntry(key, _)) -> key = targetKey) entries
             | LeafWithCollisions _ -> false
             | Branch(bitmap, children) ->
                 let bitIndex = childBitIndex prefix
@@ -184,10 +173,9 @@ module Hamt =
                 else
                     false
 
-        //TODO: Add Find
-        let rec tryFind targetKey targetHash prefix node =
+        let rec maybeFind targetKey targetHash prefix node =
             match node with
-            | Leaf(Entry(key, value)) when key = targetKey -> Some value
+            | Leaf(KVEntry(key, value)) when key = targetKey -> Some value
             | Leaf _ -> None
             | LeafWithCollisions entries when collisionHash entries = targetHash ->
                 List.tryFind (fun entry -> key entry = targetKey) entries |> Option.map value
@@ -195,12 +183,12 @@ module Hamt =
             | Branch(bitmap, children) ->
                 let bitIndex = childBitIndex prefix
                 if containsChild bitIndex bitmap
-                then tryFind targetKey targetHash (nextLayerPrefix prefix) children.[childArrayIndex bitIndex bitmap]
+                then maybeFind targetKey targetHash (nextLayerPrefix prefix) children.[childArrayIndex bitIndex bitmap]
                 else None
 
         let rec remove targetKey targetHash prefix node =
             match node with
-            | Leaf(Entry(key, _)) when key = targetKey -> NothingLeft
+            | Leaf(KVEntry(key, _)) when key = targetKey -> NothingLeft
             | Leaf _ -> NotFound
             | LeafWithCollisions entries when collisionHash entries = targetHash ->
                 match removeIfExists targetKey entries with
@@ -251,10 +239,10 @@ module Hamt =
 
     let add key value =
         function
-        | Empty -> Trie(Leaf(Entry(key, value)), 1)
+        | Empty -> Trie(Leaf(KVEntry(key, value)), 1)
         | Trie(root, count) ->
             let hash = uhash key
-            match Node.add (Entry(key, value)) hash (fullPrefixFromHash hash) root with
+            match Node.add (KVEntry(key, value)) hash (fullPrefixFromHash hash) root with
             | newRoot, Added -> Trie(newRoot, count + 1)
             | newRoot, Replaced -> Trie(newRoot, count)
 
@@ -270,7 +258,7 @@ module Hamt =
         | Empty -> None
         | Trie(root, _) ->
             let hash = uhash key
-            Node.tryFind key hash (fullPrefixFromHash hash) root
+            Node.maybeFind key hash (fullPrefixFromHash hash) root
 
     let find key hamt =
         match maybeFind key hamt with

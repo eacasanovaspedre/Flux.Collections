@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DefineConstants>X64</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utils.fs" />
@@ -14,5 +13,5 @@
     <Compile Include="SkewBinomialHeap.fs" />
     <Compile Include="HashArrayMappedTrie.fs" />
   </ItemGroup>
-  <Import Project=".paket\Paket.Restore.targets" />
+  <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

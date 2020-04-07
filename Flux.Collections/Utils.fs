@@ -15,7 +15,7 @@ module internal Array =
         else
             target
 
-    let inline private mutate value index arr = 
+    let inline private mutate value index arr =
         Array.set arr index value
         arr
 
@@ -40,3 +40,12 @@ module internal Array =
         |> Array.zeroCreate
         |> blit arr 0 0 index
         |> blit arr (index + 1) index (Array.length arr - index)
+
+[<Struct>]
+type KVEntry<'K, 'T> = KVEntry of key: 'K * value: 'T
+
+module KVEntry =
+
+    let inline key (KVEntry(k, _)) = k
+
+    let inline value (KVEntry(_, v)) = v
