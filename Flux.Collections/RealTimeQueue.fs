@@ -18,9 +18,6 @@ module RTQueue =
                 | _ -> failwith "This should never happen"
 
         let rtQueue f b s =
-            // match s with
-            // | Cons (x, s) -> { Front = f; Back = b; Schedule = s }
-            // | Nil -> let f' = rotate f b Stream.empty in { Front = f'; Back = []; Schedule = f' }
             if Stream.isEmpty s then
                 let f' = rotate f b Stream.empty
                 { Front = f'
@@ -35,9 +32,13 @@ module RTQueue =
 
     exception NoTailInEmptyRTQueueException
 
+    exception NoHeadAndNoTailInEmptyRTQueueException
+
     type NoHeadInEmptyRTQueue = NoHeadInEmptyRTQueue
 
     type NoTailInEmptyRTQueue = NoTailInEmptyRTQueue
+
+    type NoHeadAndNoTailInEmptyRTQueue = NoHeadAndNoTailInEmptyRTQueue
 
     let empty<'T> =
         { Front = Stream.empty<'T>
@@ -46,7 +47,24 @@ module RTQueue =
 
     let isEmpty { Front = f } = Stream.isEmpty f
 
+    let isNotEmpty { Front = f } = Stream.isNotEmpty f
+
     let snoc x { Front = f; Back = r; Schedule = s } = Helpers.rtQueue f (x :: r) s
+
+    let uncons { Front = f; Back = r; Schedule = s } =
+        if Stream.isNotEmpty f
+        then let h, t = Stream.uncons f in h, Helpers.rtQueue t r s
+        else raise NoHeadAndNoTailInEmptyRTQueueException
+
+    let tryUncons { Front = f; Back = r; Schedule = s } =
+        if Stream.isNotEmpty f
+        then let h, t = Stream.uncons f in Ok(h, Helpers.rtQueue t r s)
+        else Error NoHeadAndNoTailInEmptyRTQueue
+
+    let maybeUncons { Front = f; Back = r; Schedule = s } =
+        if Stream.isNotEmpty f
+        then let h, t = Stream.uncons f in Some(h, Helpers.rtQueue t r s)
+        else None
 
     let head { Front = f } =
         if Stream.isNotEmpty f then Stream.head f else raise NoHeadInEmptyRTQueueException
@@ -88,3 +106,12 @@ module RTQueue =
         loop empty list
 
     let inline ofSeq seq = Seq.fold (fun q i -> snoc i q) empty seq
+
+    let inline toList rtq =
+        let rec loop acc q =
+            if isNotEmpty q
+            then let h, t = uncons q in loop (h :: acc) t
+            else acc
+        loop [] rtq
+
+    let inline toSeq rtq = Seq.unfold maybeUncons rtq
