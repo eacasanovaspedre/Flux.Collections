@@ -31,7 +31,7 @@ module internal Array =
         |> Array.zeroCreate
         |> blit arr 0 0 index
         |> mutate value index
-        |> blit arr (index + 1) (index + 1) (Array.length arr - index)
+        |> blit arr index (index + 1) (Array.length arr - index)
 
     let remove index arr =
         arr
