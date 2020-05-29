@@ -39,7 +39,7 @@ module internal Array =
         |> (-) 1
         |> Array.zeroCreate
         |> blit arr 0 0 index
-        |> blit arr (index + 1) index (Array.length arr - index)
+        |> blit arr (index + 1) index (Array.length arr - index - 1)
 
 [<Struct>]
 type KVEntry<'K, 'T> = KVEntry of key: 'K * value: 'T
