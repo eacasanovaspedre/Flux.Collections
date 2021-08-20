@@ -2,15 +2,28 @@ name: Build and Publish
 
 on:
   push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
+  release:
+    types:
+      - published
+
+env:
+  # Stop wasting time caching packages
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  # Disable sending usage data to Microsoft
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Project name to pack and publish
+  PROJECT_NAME: Flux.Collections
+  # Official NuGet Feed settings
+  NUGET_FEED: https://api.nuget.org/v3/index.json
+  NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
 
 jobs:
   build:
-    name: Build & Test
-    runs-on: ubuntu-latest
-
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
     steps:
     - uses: actions/checkout@v2
     - name: Setup .NET
@@ -23,49 +36,24 @@ jobs:
       run: dotnet build -c Release
     - name: Test
       run: dotnet test -c Release --verbosity normal
+  
   publish:
-    name: Publish
-    runs-on: ubuntu-latest
     needs: build
-
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 5.0.x
-    - name: Tools restore
-      run: dotnet tool restore
-    - name: Publish on version change
-      id: publish_nuget
-      uses: rohith/publish-nuget@v2
-      with:
-        # Filepath of the project to be packaged, relative to root of repository
-        PROJECT_FILE_PATH: Flux.Collections/Flux.Collections.fsproj
-        
-        # NuGet package id, used for version detection & defaults to project name
-        PACKAGE_NAME: Flux.Collections
-        
-        # Filepath with version info, relative to root of repository & defaults to PROJECT_FILE_PATH
-        # VERSION_FILE_PATH: Directory.Build.props
- 
-        # Regex pattern to extract version info in a capturing group
-        # VERSION_REGEX: ^\s*<Version>(.*)<\/Version>\s*$
-          
-        # Useful with external providers like Nerdbank.GitVersioning, ignores VERSION_FILE_PATH & VERSION_REGEX
-        # VERSION_STATIC: 1.0.0
-
-        # Flag to toggle git tagging, enabled by default
-        # TAG_COMMIT: true
-
-        # Format of the git tag, [*] gets replaced with actual version
-        # TAG_FORMAT: v*
-
-        # API key to authenticate with NuGet server
-        NUGET_KEY: ${{secrets.NUGET_API_KEY}}
-
-        # NuGet server uri hosting the packages, defaults to https://api.nuget.org
-        # NUGET_SOURCE: https://api.nuget.org/v3/index.json
-
-        # Flag to toggle pushing symbols along with nuget package to the server, disabled by default
-        # INCLUDE_SYMBOLS: false
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+      - name: Create Release NuGet package
+        run: |
+          arrTag=(${GITHUB_REF//\// })
+          VERSION="${arrTag[2]}"
+          echo Version: $VERSION
+          VERSION="${VERSION//v}"
+          echo Clean Version: $VERSION
+          dotnet pack -v normal -c Release --include-symbols --include-source -p:PackageVersion=$VERSION -o nupkg src/$PROJECT_NAME/$PROJECT_NAME.*proj
+      - name: Push to NuGet Feed
+        run: dotnet nuget push ./nupkg/*.nupkg --source $NUGET_FEED --skip-duplicate --api-key $NUGET_KEY

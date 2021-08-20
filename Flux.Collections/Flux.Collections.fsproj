@@ -2,11 +2,9 @@
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <PackageId>Flux.Collections</PackageId>
-        <Version>1.2.1-alpha</Version>
         <Authors>Enrique Casanovas</Authors>
         <Company>My Free Time</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <PackageVersion>1.2.1-alpha</PackageVersion>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Utils.fs" />
