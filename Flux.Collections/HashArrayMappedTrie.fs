@@ -284,3 +284,31 @@ module Hamt =
         match hamt with
         | Empty -> Seq.empty
         | Trie(root, _) -> Node.keys root
+
+    let findAndSet k f h =
+        let x = find k h
+        add k (f x) h
+
+    let maybeFindAndSet k f h =
+        h
+        |> maybeFind k
+        |> Option.map (fun x -> add k (f x) h)
+
+    let maybeFindAndSet' k f h =
+        h
+        |> maybeFind k
+        |> Option.map (fun x -> add k (f x) h)
+        |> Option.defaultValue h
+
+    let findAndRemove k h =
+        let v = Hamt.find k h
+        v, Hamt.remove k h
+
+    let maybeFindAndRemove k h =
+        Hamt.maybeFind k h
+        |> Option.map (fun v -> v, Hamt.remove k h)
+
+    let maybeFindAndRemove' k h =
+        Hamt.maybeFind k h
+        |> Option.map (fun v -> Some v, Hamt.remove k h)
+        |> Option.defaultValue (None, h)
