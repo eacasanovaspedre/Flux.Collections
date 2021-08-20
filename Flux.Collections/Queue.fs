@@ -34,6 +34,12 @@ module Queue =
 
     let isNotEmpty (Queue(_, frontLength, _, _)) = frontLength > 0
 
+    let count (Queue(_, frontLength, _, backLength)) = frontLength + backLength
+
+    let inline length q = count q
+
+    let inline size q = count q
+
     let snoc x (Queue(front, frontLength, back, backLength)) =
         Helpers.queue front frontLength (Stream.cons x back) (backLength + 1)
 
