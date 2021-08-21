@@ -3,6 +3,7 @@ namespace rec Flux.Collections
 open Flux
 open Flux.Bit
 open System.Collections.Generic
+open System.ComponentModel
 
 #if X64
 type BitmapHolder = UInt64W
@@ -26,6 +27,11 @@ type private RemoveOutcome<'K, 'T> =
     | NothingLeft
     | Removed of Node<'K, 'T>
     | NotFound
+
+[<Struct>]
+type KeyNotFound<'K> = KeyNotFound of 'K
+
+exception KeyNotFoundException of Message: string * Key: obj KeyNotFound
 
 type Hamt<'K, 'V when 'K: equality> =
     private
@@ -263,7 +269,7 @@ module Hamt =
     let find key hamt =
         match maybeFind key hamt with
         | Some value -> value
-        | None -> failwith "Element not found"
+        | None -> KeyNotFoundException("Key not found in Hamt", KeyNotFound (upcast key)) |> raise
 
     let remove key hamt =
         match hamt with
@@ -284,3 +290,9 @@ module Hamt =
         match hamt with
         | Empty -> Seq.empty
         | Trie(root, _) -> Node.keys root
+
+    module Lens =
+
+        let inline _key k = find k, fun v -> add k v
+
+        let inline _keyMaybe k = maybeFind k, fun v -> add k v

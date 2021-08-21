@@ -4,7 +4,6 @@
         <PackageId>Flux.Collections</PackageId>
         <Authors>Enrique Casanovas</Authors>
         <Company>My Free Time</Company>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Utils.fs" />
