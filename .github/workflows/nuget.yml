@@ -49,6 +49,8 @@ jobs:
           dotnet-version: 5.0.x
       - name: Tools restore
         run: dotnet tool restore
+      - name: Build #dotnet pack fails without this
+        run: dotnet build -c Release $PROJECT_NAME/$PROJECT_NAME.*proj
       - name: Create Release NuGet package
         run: |
           arrTag=(${GITHUB_REF//\// })
