@@ -34,6 +34,8 @@ jobs:
       run: dotnet tool restore
     - name: Build
       run: dotnet build -c Release
+    - name: Check Values
+      run: echo "$PROJECT_NAME.Test/$PROJECT_NAME.Test.fsproj"
     - name: Test
       run: dotnet run -c Release -p "$PROJECT_NAME.Test/$PROJECT_NAME.Test.fsproj"
   
