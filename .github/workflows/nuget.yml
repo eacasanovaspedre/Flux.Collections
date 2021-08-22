@@ -36,11 +36,11 @@ jobs:
       run: dotnet build -c Release
     - name: Check Values
       run: echo "$matrix.os"
-    - name: Test
+    - name: Test in windows
       if: matrix.os == 'windows-latest'
-      run: dotnet run -c Release -p "$env::PROJECT_NAME.Test/$env::PROJECT_NAME.Test.fsproj"
+      run: dotnet run -c Release -p "$env:PROJECT_NAME.Test/$env:PROJECT_NAME.Test.fsproj"
     - name: Test
-      if: matrix.os == 'windows-latest'
+      if: matrix.os != 'windows-latest'
       run: dotnet run -c Release -p "$PROJECT_NAME.Test/$PROJECT_NAME.Test.fsproj"
   
   publish:
