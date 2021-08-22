@@ -33,6 +33,9 @@ jobs:
     - name: Set values in Windows
       if: matrix.os == 'windows-latest'
       run: $PROJECT_NAME="$env:PROJECT_NAME"
+    - name: Check values in Windows
+      if: matrix.os == 'windows-latest'
+      run: echo $PROJECT_NAME
     - name: Tools restore
       run: dotnet tool restore
     - name: Build
