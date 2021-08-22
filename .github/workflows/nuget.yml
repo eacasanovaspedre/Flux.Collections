@@ -35,7 +35,7 @@ jobs:
     - name: Build
       run: dotnet build -c Release
     - name: Test
-      run: dotnet run -c Release $PROJECT_NAME.Test/$PROJECT_NAME.Test.*proj
+      run: dotnet run -c Release -p $PROJECT_NAME.Test/$PROJECT_NAME.Test.*proj
   
   publish:
     needs: build
