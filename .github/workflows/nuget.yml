@@ -37,7 +37,7 @@ jobs:
     - name: Check Values
       run: echo "$matrix.os"
     - name: Test
-      if: ${{matrix.os}}=="windows-latest"
+      if: matrix.os == 'windows-latest'
       run: dotnet run -c Release -p "$PROJECT_NAME.Test/$PROJECT_NAME.Test.fsproj"
   
   publish:
