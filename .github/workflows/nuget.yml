@@ -30,18 +30,12 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 5.0.x
-    - name: Set values in Windows
-      if: matrix.os == 'windows-latest'
-      run: $PROJECT_NAME="$env:PROJECT_NAME"
-    - name: Check values in Windows
-      if: matrix.os == 'windows-latest'
-      run: echo $PROJECT_NAME
     - name: Tools restore
       run: dotnet tool restore
     - name: Build
       run: dotnet build -c Release
     - name: Test
-      run: dotnet run -c Release -p "${{env.PROJECT_NAME}}.Test/$PROJECT_NAME.Test.fsproj"
+      run: dotnet run -c Release -p "${{env.PROJECT_NAME}}.Test/${{env.PROJECT_NAME}}.Test.fsproj"
   
   publish:
     needs: build
