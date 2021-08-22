@@ -30,17 +30,14 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 5.0.x
+    - name: Set values in Windows
+      if: matrix.os == 'windows-latest'
+      run: $PROJECT_NAME="$env:PROJECT_NAME"
     - name: Tools restore
       run: dotnet tool restore
     - name: Build
       run: dotnet build -c Release
-    - name: Check Values
-      run: echo "$matrix.os"
-    - name: Test in windows
-      if: matrix.os == 'windows-latest'
-      run: dotnet run -c Release -p "$env:PROJECT_NAME.Test/$env:PROJECT_NAME.Test.fsproj"
     - name: Test
-      if: matrix.os != 'windows-latest'
       run: dotnet run -c Release -p "$PROJECT_NAME.Test/$PROJECT_NAME.Test.fsproj"
   
   publish:
@@ -55,8 +52,6 @@ jobs:
           dotnet-version: 5.0.x
       - name: Tools restore
         run: dotnet tool restore
-      - name: Build #dotnet pack fails without this
-        run: dotnet build -c Release $PROJECT_NAME/$PROJECT_NAME.*proj
       - name: Create Release NuGet package
         run: |
           arrTag=(${GITHUB_REF//\// })
