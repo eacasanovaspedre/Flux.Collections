@@ -322,4 +322,4 @@ module Hamt =
 
         let inline _key k = find k, fun v -> add k v
 
-        let inline _keyMaybe k = maybeFind k, fun v -> add k v
+        let inline _keyMaybe k = maybeFind k, fun x h -> match x with | Some v -> add k v h | None -> remove k h
