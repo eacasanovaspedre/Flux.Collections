@@ -49,3 +49,11 @@ module KVEntry =
     let inline key (KVEntry(k, _)) = k
 
     let inline value (KVEntry(_, v)) = v
+
+    let inline asPair (KVEntry(k, v)) = k, v
+
+    module Lens =
+
+        let inline _Key map f e = map (f (key e)) (fun x -> KVEntry(x, value e))
+
+        let inline _Value map f e = map (f (value e)) (fun x -> KVEntry(key x, x))
