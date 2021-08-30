@@ -219,6 +219,12 @@ module Hamt =
             | LeafWithCollisions entries -> upcast entries
             | Branch(_, children) -> Seq.collect toSeq children
 
+        let rec toSeqPairs =
+            function
+            | Leaf entry -> entry |> asPair |> Seq.singleton
+            | LeafWithCollisions entries -> entries |> Seq.map asPair
+            | Branch(_, children) -> Seq.collect toSeqPairs children
+
         let rec keys =
             function
             | Leaf entry -> Seq.singleton (key entry)
@@ -279,6 +285,11 @@ module Hamt =
         match hamt with
         | Empty -> Seq.empty
         | Trie(root, _) -> Node.toSeq root
+
+    let toSeqPairs hamt =
+        match hamt with
+        | Empty -> Seq.empty
+        | Trie(root, _) -> Node.toSeqPairs root
 
     let keys hamt =
         match hamt with
