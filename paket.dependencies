@@ -1,6 +1,7 @@
 source https://api.nuget.org/v3/index.json
 storage: none
 
+nuget BenchmarkDotNet.Diagnostics.Windows
 nuget FSharp.Core
 nuget Expecto
 nuget Expecto.BenchmarkDotNet

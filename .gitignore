@@ -7,3 +7,26 @@ out/
 .fake
 .vs
 .idea
+
+### VisualStudioCode ###
+.vscode/
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+.ionide
+
+### BenchmarkDotNet ###
+#BenchmarkDotNet.Artifacts/*
+BenchmarkDotNet.Artifacts/Flux*
+BenchmarkDotNet.Artifacts/results/*
+!BenchmarkDotNet.Artifacts/results/*-report-github.md
+!BenchmarkDotNet.Artifacts/results/*-report.asciidoc
+!BenchmarkDotNet.Artifacts/results/*-report.csv
+!BenchmarkDotNet.Artifacts/results/*-report.html
