@@ -3,7 +3,6 @@ namespace rec Flux.Collections
 open Flux
 open Flux.Bit
 open System.Collections.Generic
-open System.ComponentModel
 
 #if X64
 type BitmapHolder = UInt64W
@@ -31,7 +30,8 @@ type private RemoveOutcome<'K, 'T> =
 [<Struct>]
 type KeyNotFound<'K> = KeyNotFound of 'K
 
-exception KeyNotFoundException of Message: string * Key: obj KeyNotFound
+exception KeyNotFoundException of Msg: string * Key: obj KeyNotFound with
+    override this.Message = this.Msg
 
 type Hamt<'K, 'V when 'K: equality> =
     private
