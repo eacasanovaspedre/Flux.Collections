@@ -5,9 +5,9 @@ open Flux.Bit
 open System.Collections.Generic
 
 #if X64
-type BitmapHolder = UInt64W
+type BitmapHolder = Bitmap64
 #else
-type BitmapHolder = UInt32W
+type BitmapHolder = Bitmap32
 #endif
 
 type private Node<'K, 'T> =
@@ -33,6 +33,10 @@ type KeyNotFound<'K> = KeyNotFound of 'K
 exception KeyNotFoundException of Msg: string * Key: obj KeyNotFound with
     override this.Message = this.Msg
 
+    static member inline throw key =
+        KeyNotFoundException("Key not found in Hamt", KeyNotFound(upcast key))
+        |> raise
+
 type Hamt<'K, 'V when 'K: equality> =
     private
     | Empty
@@ -40,13 +44,13 @@ type Hamt<'K, 'V when 'K: equality> =
 
     interface IReadOnlyDictionary<'K, 'V> with
 
-        member this.GetEnumerator(): IEnumerator<KeyValuePair<'K, 'V>> =
+        member this.GetEnumerator() : IEnumerator<KeyValuePair<'K, 'V>> =
             this
             |> Hamt.toSeq
             |> Seq.map (fun entry -> KeyValuePair(KVEntry.key entry, KVEntry.value entry))
             |> Enumerable.enumerator
 
-        member this.GetEnumerator(): System.Collections.IEnumerator =
+        member this.GetEnumerator() : System.Collections.IEnumerator =
             upcast (Enumerable.enumerator (this :> IEnumerable<_>))
 
         member this.ContainsKey key = Hamt.containsKey key this
@@ -58,143 +62,192 @@ type Hamt<'K, 'V when 'K: equality> =
 
         member this.Keys = Hamt.keys this
 
-        member this.TryGetValue(key: 'K, value: byref<'V>): bool =
+        member this.TryGetValue(key: 'K, value: byref<'V>) : bool =
             match Hamt.maybeFind key this with
-            | Some v -> value <- v; true
+            | Some v ->
+                value <- v
+                true
             | None -> false
 
-        member this.Values = this |> Hamt.keys |> Seq.map (fun k -> Hamt.find k this)
+        member this.Values =
+            this
+            |> Hamt.keys
+            |> Seq.map (fun k -> Hamt.find k this)
 
 module Hamt =
     open Prefix
     open KVEntry
 
-    module private Prefix =
+    module private Key =
 
         [<Literal>]
         let HashSize = 32<bit>
 
         let inline uhash key =
             key
-            |> hash
+            |> EqualityComparer.Default.GetHashCode
             |> uint32
 
+        let inline equals k1 k2 =
+            EqualityComparer.Default.Equals(k1, k2)
+
+    module private Prefix =
+
         let inline currentLevelPrefixFromHash currentLength hash =
-            Prefix(rshift hash (HashSize - currentLength), currentLength)
+            Prefix (rshift hash (Key.HashSize - currentLength), currentLength)
 
-        let inline fullPrefixFromHash hash = currentLevelPrefixFromHash HashSize hash
+        let inline fullPrefixFromHash hash =
+            currentLevelPrefixFromHash Key.HashSize hash
 
-        let inline prefixBits (Prefix(bits, _)) = bits
+        let inline prefixBits (Prefix (bits, _)) = bits
 
-        let inline length (Prefix(_, length)) = length
+        let inline length (Prefix (_, length)) = length
 
     module private CollisionHelpers =
 
         let collisionHash entries =
-            entries
-            |> List.head
-            |> key
-            |> uhash
+            entries |> List.head |> key |> Key.uhash
 
         let insertOrReplace entry entries =
-            entries
-            |> List.tryFindIndex (fun e -> key e = key entry)
-            |> Option.map (fun index ->
-                match List.splitAt index entries with
-                | before, _ :: after -> before @ entry :: after, Replaced
-                | _ -> failwith "Never")
-            |> Option.defaultWith (fun () -> entry :: entries, Added)
+            let rec loop before =
+                function
+                | x :: after when Key.equals (key x) (key entry) -> (List.rev before) @ entry :: after, Replaced
+                | x :: xs -> loop (x :: before) xs
+                | [] -> entry :: before, Added
+
+            loop [] entries
 
         let removeIfExists targetKey entries =
-            entries
-            |> List.tryFindIndex (fun e -> key e = targetKey)
-            |> Option.map (fun index ->
-                match List.splitAt index entries with
-                | before, _ :: after -> before @ after
-                | _ -> failwith "Never")
-            |> Option.defaultValue entries
+            let rec loop before =
+                function
+                | x :: after when Key.equals (key x) targetKey -> (List.rev before) @ after
+                | x :: xs -> loop (x :: before) xs
+                | [] -> entries
+
+            loop [] entries
 
     module private Node =
 
         open CollisionHelpers
-        open Bitmap
 
-        let inline childBitIndex prefix = (prefixBits prefix) &&& bitIndexMask<BitmapHolder>() |> asBits
+        let inline childBitIndex prefix =
+            (prefixBits prefix)
+            &&& Bitmap.bitIndexMask<BitmapHolder> ()
+            |> asBits
 
         let inline containsChild childBitIndex bitmap = Bitmap.isBitOn childBitIndex bitmap
 
         let childArrayIndex childBitIndex bitmap =
             bitmap
-            |> Bitmap.onlyLowerBits childBitIndex
+            |> Bitmap.bitsLowerThan childBitIndex
             |> Bitmap.countBitsOn
             |> int
 
-        let inline nextLayerPrefix (Prefix(bits, length)) =
-            let shift = min length (bitIndexBits<BitmapHolder>())
+        let inline nextLayerPrefix (Prefix (bits, length)) =
+            let shift = min length (Bitmap.bitIndexBits<BitmapHolder> ())
             Prefix(rshift bits shift, length - shift)
 
         let rec add entry entryHash prefix node =
             match node with
-            | Leaf oldEntry when key entry = key oldEntry -> Leaf entry, Replaced
+            | Leaf oldEntry when Key.equals (key entry) (key oldEntry) -> Leaf entry, Replaced
             | Leaf oldEntry ->
-                let oldHash =
-                    oldEntry
-                    |> key
-                    |> uhash
+                let oldHash = Key.uhash (key oldEntry)
+
                 if entryHash = oldHash then
                     LeafWithCollisions [ entry; oldEntry ], AddOutcome.Added
                 else
                     let oldPrefix = currentLevelPrefixFromHash (length prefix) oldHash
-                    Branch(Bitmap.bit (childBitIndex oldPrefix), [| node |]) |> add entry entryHash prefix
+
+                    Branch(Bitmap.bit (childBitIndex oldPrefix), [| node |])
+                    |> add entry entryHash prefix
             | LeafWithCollisions entries ->
                 let collisionHash = collisionHash entries
+
                 if entryHash = collisionHash then
                     let (newEntries, outcome) = insertOrReplace entry entries
                     LeafWithCollisions newEntries, outcome
                 else
                     let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash
                     let collisionBitIndex = childBitIndex collisionPrefix
-                    Branch(Bitmap.bit collisionBitIndex, [| node |]) |> add entry entryHash prefix
-            | Branch(bitmap, children) ->
+
+                    Branch(Bitmap.bit collisionBitIndex, [| node |])
+                    |> add entry entryHash prefix
+            | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix
                 let arrayIndex = childArrayIndex bitIndex bitmap
+
                 if containsChild bitIndex bitmap then
-                    let (newChild, outcome) = add entry entryHash (nextLayerPrefix prefix) children.[arrayIndex]
+                    let (newChild, outcome) =
+                        add entry entryHash (nextLayerPrefix prefix) children.[arrayIndex]
+
                     Branch(bitmap, Array.put newChild arrayIndex children), outcome
                 else
-                    Branch(setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), Added
+                    Branch(Bitmap.setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), Added
 
         let rec containsKey targetKey targetHash prefix =
             function
-            | Leaf(KVEntry(key, _)) when key = targetKey -> true
+            | Leaf (KVEntry (key, _)) when Key.equals key targetKey -> true
             | Leaf _ -> false
             | LeafWithCollisions entries when collisionHash entries = targetHash ->
-                List.exists (fun (KVEntry(key, _)) -> key = targetKey) entries
+                let rec existsIn =
+                    function
+                    | KVEntry (key, _) :: _ when Key.equals key targetKey -> true
+                    | _ :: xs -> existsIn xs
+                    | [] -> false
+
+                existsIn entries
             | LeafWithCollisions _ -> false
-            | Branch(bitmap, children) ->
+            | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix
+
+                containsChild bitIndex bitmap
+                && containsKey targetKey targetHash (nextLayerPrefix prefix) children[childArrayIndex bitIndex bitmap]
+
+        let rec find targetKey targetHash prefix node =
+            match node with
+            | Leaf (KVEntry (key, value)) when Key.equals key targetKey -> value
+            | LeafWithCollisions entries when collisionHash entries = targetHash ->
+                let rec findValue =
+                    function
+                    | KVEntry (key, value) :: _ when Key.equals key targetKey -> value
+                    | _ :: xs -> findValue xs
+                    | [] -> KeyNotFoundException.throw targetKey
+
+                findValue entries
+            | Leaf _
+            | LeafWithCollisions _ -> KeyNotFoundException.throw targetKey
+            | Branch (bitmap, children) ->
+                let bitIndex = childBitIndex prefix
+
                 if containsChild bitIndex bitmap then
-                    containsKey targetKey targetHash (nextLayerPrefix prefix)
-                        children.[childArrayIndex bitIndex bitmap]
+                    find targetKey targetHash (nextLayerPrefix prefix) children.[childArrayIndex bitIndex bitmap]
                 else
-                    false
+                    KeyNotFoundException.throw targetKey
 
         let rec maybeFind targetKey targetHash prefix node =
             match node with
-            | Leaf(KVEntry(key, value)) when key = targetKey -> Some value
+            | Leaf (KVEntry (key, value)) when Key.equals key targetKey -> Some value
             | Leaf _ -> None
             | LeafWithCollisions entries when collisionHash entries = targetHash ->
-                List.tryFind (fun entry -> key entry = targetKey) entries |> Option.map value
+                let rec maybeFindValue =
+                    function
+                    | KVEntry (key, value) :: _ when Key.equals key targetKey -> Some value
+                    | _ :: xs -> maybeFindValue xs
+                    | [] -> None
+
+                maybeFindValue entries
             | LeafWithCollisions _ -> None
-            | Branch(bitmap, children) ->
+            | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix
-                if containsChild bitIndex bitmap
-                then maybeFind targetKey targetHash (nextLayerPrefix prefix) children.[childArrayIndex bitIndex bitmap]
-                else None
+
+                if containsChild bitIndex bitmap then
+                    maybeFind targetKey targetHash (nextLayerPrefix prefix) children.[childArrayIndex bitIndex bitmap]
+                else
+                    None
 
         let rec remove targetKey targetHash prefix node =
             match node with
-            | Leaf(KVEntry(key, _)) when key = targetKey -> NothingLeft
+            | Leaf (KVEntry (key, _)) when Key.equals key targetKey -> NothingLeft
             | Leaf _ -> NotFound
             | LeafWithCollisions entries when collisionHash entries = targetHash ->
                 match removeIfExists targetKey entries with
@@ -202,20 +255,25 @@ module Hamt =
                 | [ single ] -> Removed(Leaf single)
                 | moreThanOne -> Removed(LeafWithCollisions moreThanOne)
             | LeafWithCollisions _ -> NotFound
-            | Branch(bitmap, children) ->
+            | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix
+
                 if containsChild bitIndex bitmap then
                     let childArrayIndex = childArrayIndex bitIndex bitmap
-                    match remove targetKey targetHash (nextLayerPrefix prefix) (Array.item childArrayIndex children) with
+
+                    match remove targetKey targetHash (nextLayerPrefix prefix) (Array.item childArrayIndex children)
+                        with
                     | NotFound -> NotFound
                     | Removed child -> Removed(Branch(bitmap, Array.put child childArrayIndex children))
                     | NothingLeft ->
-                        let newBitmap = clearBit bitIndex bitmap
-                        if Array.isEmpty children
-                        then NothingLeft
-                        elif Array.length children = 1
-                        then Removed(Array.head children)
-                        else Removed(Branch(newBitmap, Array.remove childArrayIndex children))
+                        let newBitmap = Bitmap.clearBit bitIndex bitmap
+
+                        if Array.isEmpty children then
+                            NothingLeft
+                        elif Array.length children = 1 then
+                            Removed(Array.head children)
+                        else
+                            Removed(Branch(newBitmap, Array.remove childArrayIndex children))
                 else
                     NotFound
 
@@ -223,19 +281,19 @@ module Hamt =
             function
             | Leaf entry -> Seq.singleton entry
             | LeafWithCollisions entries -> upcast entries
-            | Branch(_, children) -> Seq.collect toSeq children
+            | Branch (_, children) -> Seq.collect toSeq children
 
         let rec toSeqPairs =
             function
             | Leaf entry -> entry |> asPair |> Seq.singleton
             | LeafWithCollisions entries -> entries |> Seq.map asPair
-            | Branch(_, children) -> Seq.collect toSeqPairs children
+            | Branch (_, children) -> Seq.collect toSeqPairs children
 
         let rec keys =
             function
             | Leaf entry -> Seq.singleton (key entry)
             | LeafWithCollisions entries -> Seq.map key entries
-            | Branch(_, children) -> Seq.collect keys children
+            | Branch (_, children) -> Seq.collect keys children
 
     let empty = Empty
 
@@ -247,13 +305,14 @@ module Hamt =
     let count =
         function
         | Empty -> 0
-        | Trie(_, count) -> count
+        | Trie (_, count) -> count
 
     let add key value =
         function
         | Empty -> Trie(Leaf(KVEntry(key, value)), 1)
-        | Trie(root, count) ->
-            let hash = uhash key
+        | Trie (root, count) ->
+            let hash = Key.uhash key
+
             match Node.add (KVEntry(key, value)) hash (fullPrefixFromHash hash) root with
             | newRoot, Added -> Trie(newRoot, count + 1)
             | newRoot, Replaced -> Trie(newRoot, count)
@@ -261,27 +320,30 @@ module Hamt =
     let containsKey key =
         function
         | Empty -> false
-        | Trie(root, _) ->
-            let hash = uhash key
+        | Trie (root, _) ->
+            let hash = Key.uhash key
             Node.containsKey key hash (fullPrefixFromHash hash) root
 
     let maybeFind key =
         function
         | Empty -> None
-        | Trie(root, _) ->
-            let hash = uhash key
+        | Trie (root, _) ->
+            let hash = Key.uhash key
             Node.maybeFind key hash (fullPrefixFromHash hash) root
 
-    let find key hamt =
-        match maybeFind key hamt with
-        | Some value -> value
-        | None -> KeyNotFoundException("Key not found in Hamt", KeyNotFound (upcast key)) |> raise
+    let find key =
+        function
+        | Empty -> KeyNotFoundException.throw key
+        | Trie (root, _) ->
+            let hash = Key.uhash key
+            Node.find key hash (fullPrefixFromHash hash) root
 
     let remove key hamt =
         match hamt with
         | Empty -> Empty
-        | Trie(root, count) ->
-            let hash = uhash key
+        | Trie (root, count) ->
+            let hash = Key.uhash key
+
             match Node.remove key hash (fullPrefixFromHash hash) root with
             | NotFound -> hamt
             | Removed node -> Trie(node, count - 1)
@@ -290,17 +352,17 @@ module Hamt =
     let toSeq hamt =
         match hamt with
         | Empty -> Seq.empty
-        | Trie(root, _) -> Node.toSeq root
+        | Trie (root, _) -> Node.toSeq root
 
     let toSeqPairs hamt =
         match hamt with
         | Empty -> Seq.empty
-        | Trie(root, _) -> Node.toSeqPairs root
+        | Trie (root, _) -> Node.toSeqPairs root
 
     let keys hamt =
         match hamt with
         | Empty -> Seq.empty
-        | Trie(root, _) -> Node.keys root
+        | Trie (root, _) -> Node.keys root
 
     let findAndSet k f h =
         let x = find k h
@@ -318,19 +380,25 @@ module Hamt =
         |> Option.defaultValue h
 
     let findAndRemove k h =
-        let v = Hamt.find k h
-        v, Hamt.remove k h
+        let v = find k h
+        v, remove k h
 
     let maybeFindAndRemove k h =
-        Hamt.maybeFind k h
-        |> Option.map (fun v -> v, Hamt.remove k h)
+        maybeFind k h
+        |> Option.map (fun v -> v, remove k h)
 
     let maybeFindAndRemove' k h =
-        Hamt.maybeFind k h
-        |> Option.map (fun v -> Some v, Hamt.remove k h)
+        maybeFind k h
+        |> Option.map (fun v -> Some v, remove k h)
         |> Option.defaultValue (None, h)
+
     module Lens =
 
-        let inline _key k = find k, fun v -> add k v
+        let inline _key k = find k, (fun v -> add k v)
 
-        let inline _keyMaybe k = maybeFind k, fun x h -> match x with | Some v -> add k v h | None -> remove k h
+        let inline _keyMaybe k =
+            maybeFind k,
+            fun x h ->
+                match x with
+                | Some v -> add k v h
+                | None -> remove k h
