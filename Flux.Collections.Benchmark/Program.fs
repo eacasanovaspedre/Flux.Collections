@@ -13,9 +13,9 @@ type KeyType =
     | Guid
 
 type Dataset<'Key when 'Key: equality and 'Key: comparison> =
-    { Hamt: Lazy<Hamt<'Key, string>>
-      FSharpMap: Lazy<Map<'Key, string>>
-      DotnetMap: Lazy<Dictionary<'Key, string>>
+    { Hamt: Hamt<'Key, string> Lazy
+      FSharpMap: Map<'Key, string> Lazy
+      DotnetMap: Dictionary<'Key, string> Lazy
       LookupKeys: 'Key array }
 
 type Dataset' =
@@ -56,31 +56,41 @@ module Dataset =
           DotnetMap = lazy dotnetMapOfSeq entries
           LookupKeys = lookupKeys }
 
-    let inline findAllAndSum getItem map keys =
-        keys
-        |> Seq.map (fun k -> getItem k map |> String.length)
-        |> Seq.sum
+    let inline findAllAndSum ([<InlineIfLambda>] getItem) map keys =
+        let rec sumLengths index sum =
+            if index < Array.length keys
+                then sumLengths (index + 1) (sum + (getItem keys[index] map |> String.length))
+                else sum
+        sumLengths 0 0
 
 [<AsciiDocExporter>]
 [<RPlotExporter>]
-[<MemoryDiagnoser>]
+[<MemoryDiagnoser(displayGenColumns = true)>]
 [<HardwareCounters(HardwareCounter.CacheMisses, HardwareCounter.BranchInstructions, HardwareCounter.BranchMispredictions)>]
 type MapsFind() =
 
     [<ParamsSource("KeyTypes")>]
     member val KeyType = Int with get, set
 
-    member val KeyTypes = [ Int; String; Guid ] |> List.toSeq
+    member val KeyTypes = 
+        [
+            Int
+            String
+            Guid 
+        ] 
+        |> List.toSeq
 
     [<ParamsSource("DatasetSizes")>]
     member val DatasetSize = 10 with get, set
 
     member val DatasetSizes =
-        [ 10
+        [ 
+          10
           100
           1000
           10000
-          100000 ]
+          100000 
+        ]
         |> List.toSeq
 
     member val HamtDataset = None with get, set
@@ -112,40 +122,38 @@ type MapsFind() =
     [<Benchmark>]
     member x.Hamt() =
         match x.Dataset with
-        | Some (IntKey { Hamt = Lazy hamt
-                         LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Hamt.find) hamt lookupKeys
-        | Some (StringKey { Hamt = Lazy hamt
-                            LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Hamt.find) hamt lookupKeys
-        | Some (GuidKey { Hamt = Lazy hamt
-                          LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Hamt.find) hamt lookupKeys
+        | Some (IntKey { Hamt = hamt; LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Hamt.find) (hamt.Force()) lookupKeys
+        | Some (StringKey { Hamt = hamt; LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Hamt.find) (hamt.Force()) lookupKeys
+        | Some (GuidKey { Hamt = hamt; LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Hamt.find) (hamt.Force()) lookupKeys
         | None -> failwith "Not initialized"
 
     [<Benchmark>]
     member x.FSharpMap() =
         match x.Dataset with
-        | Some (IntKey { FSharpMap = Lazy map
-                         LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Map.find) map lookupKeys
-        | Some (StringKey { FSharpMap = Lazy map
-                            LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Map.find) map lookupKeys
-        | Some (GuidKey { FSharpMap = Lazy map
-                          LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Map.find) map lookupKeys
+        | Some (IntKey { FSharpMap = map
+                         LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
+        | Some (StringKey { FSharpMap = map
+                            LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
+        | Some (GuidKey { FSharpMap = map
+                          LookupKeys = lookupKeys }) -> Dataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
         | None -> failwith "Not initialized"
 
     [<Benchmark(Baseline = true)>]
     member x.DotnetMap() =
         match x.Dataset with
-        | Some (IntKey { DotnetMap = Lazy map
+        | Some (IntKey { DotnetMap = map
                          LookupKeys = lookupKeys }) ->
-            Dataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) map lookupKeys
-        | Some (StringKey { DotnetMap = Lazy map
+            Dataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) (map.Force()) lookupKeys
+        | Some (StringKey { DotnetMap = map
                             LookupKeys = lookupKeys }) ->
-            Dataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) map lookupKeys
-        | Some (GuidKey { DotnetMap = Lazy map
+            Dataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) (map.Force()) lookupKeys
+        | Some (GuidKey { DotnetMap = map
                           LookupKeys = lookupKeys }) ->
-            Dataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) map lookupKeys
+            Dataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) (map.Force()) lookupKeys
         | None -> failwith "Not initialized"
 
 module Main =
+
     [<EntryPoint>]
     let main args =
         BenchmarkRunner.Run<MapsFind>() |> ignore
