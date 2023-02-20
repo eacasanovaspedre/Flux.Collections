@@ -5,12 +5,7 @@ open System.Collections.Generic
 open System
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Diagnosers
-
-[<Struct>]
-type KeyType =
-    | Int
-    | String
-    | Guid
+open Flux.Collections.Benchmark.Params.Maps
 
 [<Struct>]
 type FindDataset<'Key when 'Key: equality and 'Key: comparison> =
@@ -84,12 +79,12 @@ type Find() =
     [<ParamsSource("KeyTypes")>]
     member val KeyType = Int with get, set
 
-    member val KeyTypes = [ Int; String; Guid ] |> List.toSeq
+    member val KeyTypes = Find.keyTypes
 
     [<ParamsSource("DatasetSizes")>]
     member val DatasetSize = 10 with get, set
 
-    member val DatasetSizes = [ 10; 100; 1000; 10000; 100000 ] |> List.toSeq
+    member val DatasetSizes = Find.datasetSizes
 
     member val Dataset = None with get, set
 
@@ -181,12 +176,12 @@ type Insert() =
     [<ParamsSource("KeyTypes")>]
     member val KeyType = Int with get, set
 
-    member val KeyTypes = [ Int; String; Guid ] |> List.toSeq
+    member val KeyTypes = Insert.keyTypes
 
     [<ParamsSource("DatasetSizes")>]
     member val DatasetSize = 10 with get, set
 
-    member val DatasetSizes = [ 1000 ] |> List.toSeq
+    member val DatasetSizes = Insert.datasetSizes
 
     member val Dataset = None with get, set
 
