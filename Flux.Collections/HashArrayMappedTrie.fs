@@ -18,6 +18,7 @@ type private Node<'K, 'T> =
 [<Struct>]
 type private Prefix = Prefix of bits: uint32 * length: int<bit>
 
+[<Struct>]
 type private AddOutcome =
     | Added
     | Replaced
@@ -170,7 +171,7 @@ module Hamt =
                     let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash
                     let collisionBitIndex = childBitIndex collisionPrefix
 
-                    Branch(Bitmap.bit collisionBitIndex, [| node |])
+                    Branch (Bitmap.bit collisionBitIndex, [| node |])
                     |> add entry entryHash prefix
             | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix

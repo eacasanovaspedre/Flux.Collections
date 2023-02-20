@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Flux.Collections.Benchmark.Maps.Find-20230219-145609</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet=v0.13.4, OS=Windows 11 (10.0.22621.1037)
+Intel Core i7-7700K CPU 4.20GHz (Kaby Lake), 1 CPU, 8 logical and 4 physical cores
+.NET SDK=7.0.103
+  [Host]     : .NET 7.0.3 (7.0.323.6910), X64 RyuJIT AVX2 DEBUG
+  DefaultJob : .NET 7.0.3 (7.0.323.6910), X64 RyuJIT AVX2
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>KeyType</th><th>DatasetSize</th><th>      Mean</th><th>   Error</th><th>   StdDev</th><th>    Median</th><th>Ratio</th><th>RatioSD</th><th>BranchInstructions/Op</th><th>CacheMisses/Op</th><th> Gen0</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>Hamt</td><td>Guid</td><td>10</td><td>5.135 &mu;s</td><td>0.1024 &mu;s</td><td>0.1653 &mu;s</td><td>5.173 &mu;s</td><td>3.32</td><td>0.16</td><td>9,082</td><td>20</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>Guid</td><td>10</td><td>29.334 &mu;s</td><td>0.5844 &mu;s</td><td>0.8746 &mu;s</td><td>29.311 &mu;s</td><td>18.96</td><td>0.81</td><td>37,477</td><td>693</td><td>4.5166</td><td>19008 B</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>Guid</td><td>10</td><td>1.550 &mu;s</td><td>0.0309 &mu;s</td><td>0.0482 &mu;s</td><td>1.549 &mu;s</td><td>1.00</td><td>0.00</td><td>1,856</td><td>5</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>Guid</td><td>100</td><td>67.769 &mu;s</td><td>1.3138 &mu;s</td><td>2.4024 &mu;s</td><td>67.786 &mu;s</td><td>3.61</td><td>0.18</td><td>123,710</td><td>288</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>Guid</td><td>100</td><td>588.252 &mu;s</td><td>11.5932 &mu;s</td><td>17.7040 &mu;s</td><td>586.948 &mu;s</td><td>31.13</td><td>1.47</td><td>771,523</td><td>14,384</td><td>90.8203</td><td>382336 B</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>Guid</td><td>100</td><td>18.864 &mu;s</td><td>0.3755 &mu;s</td><td>0.6274 &mu;s</td><td>18.851 &mu;s</td><td>1.00</td><td>0.00</td><td>19,211</td><td>74</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>Guid</td><td>1000</td><td>793.930 &mu;s</td><td>26.4161 &mu;s</td><td>77.4738 &mu;s</td><td>805.730 &mu;s</td><td>3.78</td><td>0.26</td><td>1,429,480</td><td>7,810</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>Guid</td><td>1000</td><td>9,169.879 &mu;s</td><td>174.4016 &mu;s</td><td>382.8158 &mu;s</td><td>9,105.438 &mu;s</td><td>40.64</td><td>2.22</td><td>11,534,746</td><td>252,556</td><td>1437.5000</td><td>6040968 B</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>Guid</td><td>1000</td><td>228.443 &mu;s</td><td>4.4311 &mu;s</td><td>7.1553 &mu;s</td><td>227.664 &mu;s</td><td>1.00</td><td>0.00</td><td>190,864</td><td>1,978</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>Guid</td><td>10000</td><td>20,813.318 &mu;s</td><td>413.5653 &mu;s</td><td>593.1230 &mu;s</td><td>20,714.700 &mu;s</td><td>4.28</td><td>0.39</td><td>16,630,961</td><td>572,125</td><td>-</td><td>16 B</td><td>4.00</td>
+</tr><tr><td>FSharpMap</td><td>Guid</td><td>10000</td><td>149,723.034 &mu;s</td><td>2,969.6116 &mu;s</td><td>6,702.9083 &mu;s</td><td>147,514.025 &mu;s</td><td>31.03</td><td>2.20</td><td>155,766,985</td><td>5,008,031</td><td>19500.0000</td><td>81613566 B</td><td>20,403,391.50</td>
+</tr><tr><td>DotnetMap</td><td>Guid</td><td>10000</td><td>4,792.712 &mu;s</td><td>104.5141 &mu;s</td><td>308.1622 &mu;s</td><td>4,835.887 &mu;s</td><td>1.00</td><td>0.00</td><td>1,960,550</td><td>189,674</td><td>-</td><td>4 B</td><td>1.00</td>
+</tr><tr><td>Hamt</td><td>Guid</td><td>100000</td><td>480,221.403 &mu;s</td><td>9,299.3906 &mu;s</td><td>15,016.7825 &mu;s</td><td>482,612.750 &mu;s</td><td>2.44</td><td>0.15</td><td>196,975,730</td><td>23,689,102</td><td>-</td><td>504 B</td><td>3.00</td>
+</tr><tr><td>FSharpMap</td><td>Guid</td><td>100000</td><td>2,048,526.359 &mu;s</td><td>41,310.9469 &mu;s</td><td>120,505.9711 &mu;s</td><td>2,063,011.600 &mu;s</td><td>10.09</td><td>0.86</td><td>1,977,308,938</td><td>80,101,417</td><td>248000.0000</td><td>1039660792 B</td><td>6,188,457.10</td>
+</tr><tr><td>DotnetMap</td><td>Guid</td><td>100000</td><td>204,130.359 &mu;s</td><td>4,514.6122 &mu;s</td><td>13,311.4359 &mu;s</td><td>202,997.417 &mu;s</td><td>1.00</td><td>0.00</td><td>22,598,124</td><td>11,463,175</td><td>-</td><td>168 B</td><td>1.00</td>
+</tr><tr><td>Hamt</td><td>Int</td><td>10</td><td>4.096 &mu;s</td><td>0.0716 &mu;s</td><td>0.1093 &mu;s</td><td>4.101 &mu;s</td><td>3.48</td><td>0.19</td><td>8,865</td><td>17</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>Int</td><td>10</td><td>2.692 &mu;s</td><td>0.0489 &mu;s</td><td>0.0776 &mu;s</td><td>2.703 &mu;s</td><td>2.28</td><td>0.14</td><td>3,653</td><td>10</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>Int</td><td>10</td><td>1.132 &mu;s</td><td>0.0292 &mu;s</td><td>0.0846 &mu;s</td><td>1.145 &mu;s</td><td>1.00</td><td>0.00</td><td>1,753</td><td>4</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>Int</td><td>100</td><td>51.124 &mu;s</td><td>2.0381 &mu;s</td><td>6.0095 &mu;s</td><td>51.177 &mu;s</td><td>4.63</td><td>0.57</td><td>114,372</td><td>165</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>Int</td><td>100</td><td>62.572 &mu;s</td><td>0.8116 &mu;s</td><td>0.7592 &mu;s</td><td>62.387 &mu;s</td><td>5.69</td><td>0.24</td><td>78,818</td><td>241</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>Int</td><td>100</td><td>11.091 &mu;s</td><td>0.2216 &mu;s</td><td>0.4107 &mu;s</td><td>11.101 &mu;s</td><td>1.00</td><td>0.00</td><td>17,157</td><td>46</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>Int</td><td>1000</td><td>595.151 &mu;s</td><td>14.8716 &mu;s</td><td>42.1881 &mu;s</td><td>598.276 &mu;s</td><td>5.97</td><td>1.17</td><td>1,208,382</td><td>3,589</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>Int</td><td>1000</td><td>969.595 &mu;s</td><td>35.9044 &mu;s</td><td>105.3013 &mu;s</td><td>974.381 &mu;s</td><td>9.58</td><td>1.87</td><td>1,181,332</td><td>5,274</td><td>-</td><td>1 B</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>Int</td><td>1000</td><td>104.530 &mu;s</td><td>6.7331 &mu;s</td><td>19.8527 &mu;s</td><td>97.854 &mu;s</td><td>1.00</td><td>0.00</td><td>171,423</td><td>485</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>Int</td><td>10000</td><td>11,655.658 &mu;s</td><td>610.7678 &mu;s</td><td>1,800.8627 &mu;s</td><td>11,952.767 &mu;s</td><td>5.29</td><td>0.90</td><td>15,372,820</td><td>204,465</td><td>-</td><td>8 B</td><td>4.00</td>
+</tr><tr><td>FSharpMap</td><td>Int</td><td>10000</td><td>17,791.908 &mu;s</td><td>707.5000 &mu;s</td><td>2,074.9750 &mu;s</td><td>17,989.009 &mu;s</td><td>8.57</td><td>0.97</td><td>16,048,783</td><td>262,888</td><td>-</td><td>16 B</td><td>8.00</td>
+</tr><tr><td>DotnetMap</td><td>Int</td><td>10000</td><td>2,140.090 &mu;s</td><td>42.7881 &mu;s</td><td>94.8155 &mu;s</td><td>2,152.450 &mu;s</td><td>1.00</td><td>0.00</td><td>1,734,626</td><td>55,001</td><td>-</td><td>2 B</td><td>1.00</td>
+</tr><tr><td>Hamt</td><td>Int</td><td>100000</td><td>401,209.035 &mu;s</td><td>8,011.3912 &mu;s</td><td>17,918.6245 &mu;s</td><td>401,923.100 &mu;s</td><td>3.70</td><td>0.32</td><td>185,800,021</td><td>18,144,256</td><td>-</td><td>504 B</td><td>3.19</td>
+</tr><tr><td>FSharpMap</td><td>Int</td><td>100000</td><td>460,989.643 &mu;s</td><td>9,214.2115 &mu;s</td><td>20,608.9044 &mu;s</td><td>462,314.250 &mu;s</td><td>4.25</td><td>0.37</td><td>208,876,124</td><td>18,659,026</td><td>-</td><td>504 B</td><td>3.19</td>
+</tr><tr><td>DotnetMap</td><td>Int</td><td>100000</td><td>109,389.032 &mu;s</td><td>2,564.2622 &mu;s</td><td>7,560.7848 &mu;s</td><td>109,922.230 &mu;s</td><td>1.00</td><td>0.00</td><td>18,996,265</td><td>5,764,620</td><td>-</td><td>158 B</td><td>1.00</td>
+</tr><tr><td>Hamt</td><td>String</td><td>10</td><td>9.508 &mu;s</td><td>0.1854 &mu;s</td><td>0.2887 &mu;s</td><td>9.501 &mu;s</td><td>2.73</td><td>0.13</td><td>13,331</td><td>38</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>String</td><td>10</td><td>4.473 &mu;s</td><td>0.0890 &mu;s</td><td>0.2097 &mu;s</td><td>4.432 &mu;s</td><td>1.27</td><td>0.04</td><td>6,457</td><td>18</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>String</td><td>10</td><td>3.461 &mu;s</td><td>0.0615 &mu;s</td><td>0.0545 &mu;s</td><td>3.463 &mu;s</td><td>1.00</td><td>0.00</td><td>4,181</td><td>12</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>String</td><td>100</td><td>115.928 &mu;s</td><td>2.2279 &mu;s</td><td>2.8176 &mu;s</td><td>115.616 &mu;s</td><td>3.39</td><td>0.31</td><td>167,708</td><td>487</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>String</td><td>100</td><td>95.765 &mu;s</td><td>1.9076 &mu;s</td><td>3.1342 &mu;s</td><td>94.951 &mu;s</td><td>2.86</td><td>0.28</td><td>129,403</td><td>378</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>String</td><td>100</td><td>30.908 &mu;s</td><td>1.2197 &mu;s</td><td>3.5386 &mu;s</td><td>30.717 &mu;s</td><td>1.00</td><td>0.00</td><td>41,289</td><td>96</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>String</td><td>1000</td><td>1,212.644 &mu;s</td><td>86.6164 &mu;s</td><td>255.3905 &mu;s</td><td>1,098.558 &mu;s</td><td>5.27</td><td>0.87</td><td>1,867,754</td><td>5,673</td><td>-</td><td>1 B</td><td>NA</td>
+</tr><tr><td>FSharpMap</td><td>String</td><td>1000</td><td>1,295.084 &mu;s</td><td>23.5120 &mu;s</td><td>37.9676 &mu;s</td><td>1,287.193 &mu;s</td><td>4.84</td><td>0.24</td><td>2,137,351</td><td>4,622</td><td>-</td><td>1 B</td><td>NA</td>
+</tr><tr><td>DotnetMap</td><td>String</td><td>1000</td><td>268.254 &mu;s</td><td>5.3189 &mu;s</td><td>10.4990 &mu;s</td><td>269.829 &mu;s</td><td>1.00</td><td>0.00</td><td>412,273</td><td>745</td><td>-</td><td>-</td><td>NA</td>
+</tr><tr><td>Hamt</td><td>String</td><td>10000</td><td>14,535.797 &mu;s</td><td>265.0766 &mu;s</td><td>435.5284 &mu;s</td><td>14,400.292 &mu;s</td><td>2.04</td><td>0.21</td><td>20,699,506</td><td>318,130</td><td>-</td><td>8 B</td><td>2.00</td>
+</tr><tr><td>FSharpMap</td><td>String</td><td>10000</td><td>25,425.122 &mu;s</td><td>489.2279 &mu;s</td><td>1,031.9477 &mu;s</td><td>25,146.802 &mu;s</td><td>3.45</td><td>0.33</td><td>30,129,045</td><td>642,069</td><td>-</td><td>16 B</td><td>4.00</td>
+</tr><tr><td>DotnetMap</td><td>String</td><td>10000</td><td>7,458.466 &mu;s</td><td>200.9353 &mu;s</td><td>589.3083 &mu;s</td><td>7,402.926 &mu;s</td><td>1.00</td><td>0.00</td><td>4,234,496</td><td>443,509</td><td>-</td><td>4 B</td><td>1.00</td>
+</tr><tr><td>Hamt</td><td>String</td><td>100000</td><td>362,359.641 &mu;s</td><td>7,221.3643 &mu;s</td><td>18,249.3091 &mu;s</td><td>364,953.200 &mu;s</td><td>2.29</td><td>0.15</td><td>236,818,166</td><td>24,706,274</td><td>-</td><td>504 B</td><td>4.00</td>
+</tr><tr><td>FSharpMap</td><td>String</td><td>100000</td><td>774,140.493 &mu;s</td><td>15,145.0322 &mu;s</td><td>13,425.6765 &mu;s</td><td>771,130.100 &mu;s</td><td>4.91</td><td>0.22</td><td>405,519,292</td><td>71,370,615</td><td>-</td><td>504 B</td><td>4.00</td>
+</tr><tr><td>DotnetMap</td><td>String</td><td>100000</td><td>158,402.373 &mu;s</td><td>3,137.1282 &mu;s</td><td>7,870.4412 &mu;s</td><td>156,673.950 &mu;s</td><td>1.00</td><td>0.00</td><td>44,562,930</td><td>15,741,772</td><td>-</td><td>126 B</td><td>1.00</td>
+</tr></tbody></table>
+</body>
+</html>

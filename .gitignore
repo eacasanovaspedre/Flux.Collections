@@ -24,6 +24,7 @@ out/
 
 ### BenchmarkDotNet ###
 #BenchmarkDotNet.Artifacts/*
+BenchmarkDotNet.Artifacts/*.log
 BenchmarkDotNet.Artifacts/Flux*
 BenchmarkDotNet.Artifacts/results/*
 !BenchmarkDotNet.Artifacts/results/*-report-github.md
