@@ -124,19 +124,28 @@ type Find() =
     [<Benchmark>]
     member x.FSharpMap() =
         match x.Dataset with
-        | Some (FindDataset'.IntKey { FSharpMap = map; LookupKeys = lookupKeys }) -> FindDataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
-        | Some (FindDataset'.StringKey { FSharpMap = map; LookupKeys = lookupKeys }) -> FindDataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
-        | Some (FindDataset'.GuidKey { FSharpMap = map; LookupKeys = lookupKeys }) -> FindDataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
+        | Some (FindDataset'.IntKey { FSharpMap = map
+                                      LookupKeys = lookupKeys }) ->
+            FindDataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
+        | Some (FindDataset'.StringKey { FSharpMap = map
+                                         LookupKeys = lookupKeys }) ->
+            FindDataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
+        | Some (FindDataset'.GuidKey { FSharpMap = map
+                                       LookupKeys = lookupKeys }) ->
+            FindDataset.findAllAndSum (Map.find) (map.Force()) lookupKeys
         | None -> failwith "Not initialized"
 
     [<Benchmark(Baseline = true)>]
     member x.DotnetMap() =
         match x.Dataset with
-        | Some (FindDataset'.IntKey { DotnetMap = map; LookupKeys = lookupKeys }) ->
+        | Some (FindDataset'.IntKey { DotnetMap = map
+                                      LookupKeys = lookupKeys }) ->
             FindDataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) (map.Force()) lookupKeys
-        | Some (FindDataset'.StringKey { DotnetMap = map; LookupKeys = lookupKeys }) ->
+        | Some (FindDataset'.StringKey { DotnetMap = map
+                                         LookupKeys = lookupKeys }) ->
             FindDataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) (map.Force()) lookupKeys
-        | Some (FindDataset'.GuidKey { DotnetMap = map; LookupKeys = lookupKeys }) ->
+        | Some (FindDataset'.GuidKey { DotnetMap = map
+                                       LookupKeys = lookupKeys }) ->
             FindDataset.findAllAndSum (fun k (t: Dictionary<_, _>) -> t[k]) (map.Force()) lookupKeys
         | None -> failwith "Not initialized"
 
@@ -144,27 +153,33 @@ module PutDataset =
 
     let insertOnHamt entries =
         let rec loop index map =
-            if index = Array.length entries then map
+            if index = Array.length entries then
+                map
             else
                 let (key, value) = entries[index]
                 Hamt.add key value map |> loop (index + 1)
+
         loop 0 Hamt.empty
 
     let insertOnFSharpMap entries =
         let rec loop index map =
-            if index = Array.length entries then map
+            if index = Array.length entries then
+                map
             else
                 let (key, value) = entries[index]
                 Map.add key value map |> loop (index + 1)
+
         loop 0 Map.empty
 
     let insertOnDotnetMap entries =
-        let rec loop index (map: Dictionary<_,_>) =
-            if index = Array.length entries then map
+        let rec loop index (map: Dictionary<_, _>) =
+            if index = Array.length entries then
+                map
             else
                 let (key, value) = entries[index]
                 map.TryAdd(key, value) |> ignore
                 loop (index + 1) map
+
         loop 0 (Dictionary())
 
 [<AsciiDocExporter>]
@@ -210,32 +225,23 @@ type Insert() =
     [<Benchmark>]
     member x.Hamt() =
         match x.Dataset with
-        | Some (PutDataset.IntKey (Lazy entries)) ->
-            PutDataset.insertOnHamt entries |> ignore
-        | Some (PutDataset.StringKey (Lazy entries)) ->
-            PutDataset.insertOnHamt entries |> ignore
-        | Some (PutDataset.GuidKey (Lazy entries)) ->
-            PutDataset.insertOnHamt entries |> ignore
+        | Some (PutDataset.IntKey (Lazy entries)) -> PutDataset.insertOnHamt entries |> ignore
+        | Some (PutDataset.StringKey (Lazy entries)) -> PutDataset.insertOnHamt entries |> ignore
+        | Some (PutDataset.GuidKey (Lazy entries)) -> PutDataset.insertOnHamt entries |> ignore
         | None -> failwith "Not initialized"
 
     [<Benchmark>]
     member x.FSharpMap() =
         match x.Dataset with
-        | Some (PutDataset.IntKey (Lazy entries)) ->
-            PutDataset.insertOnFSharpMap entries |> ignore
-        | Some (PutDataset.StringKey (Lazy entries)) ->
-            PutDataset.insertOnFSharpMap entries |> ignore
-        | Some (PutDataset.GuidKey (Lazy entries)) ->
-            PutDataset.insertOnFSharpMap entries |> ignore
+        | Some (PutDataset.IntKey (Lazy entries)) -> PutDataset.insertOnFSharpMap entries |> ignore
+        | Some (PutDataset.StringKey (Lazy entries)) -> PutDataset.insertOnFSharpMap entries |> ignore
+        | Some (PutDataset.GuidKey (Lazy entries)) -> PutDataset.insertOnFSharpMap entries |> ignore
         | None -> failwith "Not initialized"
 
     [<Benchmark(Baseline = true)>]
     member x.DotnetMap() =
         match x.Dataset with
-        | Some (PutDataset.IntKey (Lazy entries)) ->
-            PutDataset.insertOnDotnetMap entries |> ignore
-        | Some (PutDataset.StringKey (Lazy entries)) ->
-            PutDataset.insertOnDotnetMap entries |> ignore
-        | Some (PutDataset.GuidKey (Lazy entries)) ->
-            PutDataset.insertOnDotnetMap entries |> ignore
+        | Some (PutDataset.IntKey (Lazy entries)) -> PutDataset.insertOnDotnetMap entries |> ignore
+        | Some (PutDataset.StringKey (Lazy entries)) -> PutDataset.insertOnDotnetMap entries |> ignore
+        | Some (PutDataset.GuidKey (Lazy entries)) -> PutDataset.insertOnDotnetMap entries |> ignore
         | None -> failwith "Not initialized"

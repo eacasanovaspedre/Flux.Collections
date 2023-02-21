@@ -1,21 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <PackageId>Flux.Collections</PackageId>
-        <Authors>Enrique Casanovas</Authors>
-        <Company>My Free Time</Company>
-    </PropertyGroup>
-    <ItemGroup>
-        <Compile Include="Utils.fs" />
-        <Compile Include="Bit.fs" />
-        <Compile Include="Bitmap.fs" />
-        <Compile Include="Stream.fs" />
-        <Compile Include="Queue.fs" />
-        <Compile Include="RealTimeQueue.fs" />
-        <Compile Include="SkewBinaryRandomAccessList.fs" />
-        <Compile Include="SkewBinomialHeap.fs" />
-        <Compile Include="HashArrayMappedTrie.fs" />
-    </ItemGroup>
-    <Import Project="..\.paket\Paket.Restore.targets" />
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>Flux.Collections</PackageId>
+    <Authors>Enrique Casanovas</Authors>
+    <Company>My Free Time</Company>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Utils.fs" />
+    <Compile Include="Bit.fs" />
+    <Compile Include="Bitmap.fs" />
+    <Compile Include="Stream.fs" />
+    <Compile Include="Queue.fs" />
+    <Compile Include="RealTimeQueue.fs" />
+    <Compile Include="SkewBinaryRandomAccessList.fs" />
+    <Compile Include="SkewBinomialHeap.fs" />
+    <Compile Include="HashArrayMappedTried.Internals.fs" />
+    <Compile Include="HashArrayMappedTrie.fs" />
+  </ItemGroup>
+  <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

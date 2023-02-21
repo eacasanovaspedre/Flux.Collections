@@ -10,10 +10,10 @@ module Find =
 
     let keyTypes = [ Int; String; Guid ]
 
-    let datasetSizes = [ 10; 100; 1000; 10000; 100000 ]
+    let datasetSizes = [ 1000 ]
 
 module Insert =
 
     let keyTypes = [ Int; String; Guid ]
 
-    let datasetSizes = [ 10; 100; 1000; 10000; 100000 ]
+    let datasetSizes = [ 1000 ]
