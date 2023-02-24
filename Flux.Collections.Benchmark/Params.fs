@@ -5,15 +5,39 @@ type KeyType =
     | Int
     | String
     | Guid
+    | CustomClassStrType
+    | CustomStructStrType
 
 module Find =
 
-    let keyTypes = [ Int; String; Guid ]
+    let keyTypes = [
+        Int
+        String
+        Guid
+        CustomClassStrType
+        CustomStructStrType
+    ]
 
-    let datasetSizes = [ 1000 ]
+    let datasetSizes = [
+        10
+        100
+        1000
+        10000
+    ]
 
 module Insert =
+    
+    let keyTypes = [
+        Int
+        String
+        Guid
+        CustomClassStrType
+        CustomStructStrType
+    ]
 
-    let keyTypes = [ Int; String; Guid ]
-
-    let datasetSizes = [ 1000 ]
+    let datasetSizes = [
+        //10
+        100
+        1000
+        10000
+    ]

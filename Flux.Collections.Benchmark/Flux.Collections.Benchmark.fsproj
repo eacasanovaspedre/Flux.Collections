@@ -6,6 +6,7 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Keys.fs" />
     <Compile Include="Params.fs" />
     <Compile Include="Maps.fs" />
     <Compile Include="Program.fs" />
