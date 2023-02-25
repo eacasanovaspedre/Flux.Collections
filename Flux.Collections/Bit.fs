@@ -6,7 +6,7 @@ module Flux.Bit
 [<AutoOpen>]
 module Operators =
 
-    let inline asBits value = int value * 1<bit>
+    let inline asBits value = LanguagePrimitives.Int32WithMeasure<bit> (int value)
 
     let inline lshift value (bits: int<bit>) = value <<< (int bits)
 
