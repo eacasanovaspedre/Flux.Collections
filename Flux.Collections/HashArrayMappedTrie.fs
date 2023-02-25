@@ -70,8 +70,8 @@ module Hamt =
         | Trie(root, count, eqComparer) ->
             let hash = Key.uhash eqComparer key
             match Node.add eqComparer (KVEntry(key, value)) hash (Prefix.fullPrefixFromHash hash) root with
-            | newRoot, Added -> Trie(newRoot, count + 1, eqComparer)
-            | newRoot, Replaced -> Trie(newRoot, count, eqComparer)
+            | struct (newRoot, Added) -> Trie(newRoot, count + 1, eqComparer)
+            | struct (newRoot, Replaced) -> Trie(newRoot, count, eqComparer)
 
     let containsKey key =
         function
