@@ -32,7 +32,6 @@ module internal Hamt =
     [<Struct>]
     type Prefix = Prefix of bits: uint32 * length: int<bit>
 
-    [<Struct>]
     type AddOutcome =
         | Added
         | Replaced
@@ -76,9 +75,9 @@ module internal Hamt =
         let insertOrReplace eqComparer entry entries =
             let rec loop before =
                 function
-                | KVEntry (key, _) :: after when Key.equals eqComparer key (KVEntry.key entry) -> (List.rev before) @ entry :: after, Replaced
+                | KVEntry (key, _) :: after when Key.equals eqComparer key (KVEntry.key entry) -> struct ((List.rev before) @ entry :: after, Replaced)
                 | x :: xs -> loop (x :: before) xs
-                | [] -> entry :: before, Added
+                | [] -> struct (entry :: before, Added)
 
             loop [] entries
 
@@ -115,7 +114,7 @@ module internal Hamt =
 
         let rec add eqComparer entry entryHash prefix node =
             match node with
-            | Leaf oldEntry when Key.equals eqComparer (KVEntry.key entry) (KVEntry.key oldEntry) -> Leaf entry, Replaced
+            | Leaf oldEntry when Key.equals eqComparer (KVEntry.key entry) (KVEntry.key oldEntry) -> struct (Leaf entry, Replaced)
             | Leaf oldEntry ->
                 let oldHash = Key.uhash eqComparer (KVEntry.key oldEntry)
 
@@ -130,7 +129,7 @@ module internal Hamt =
                 let collisionHash = collisionHash eqComparer entries
 
                 if entryHash = collisionHash then
-                    let newEntries, outcome = insertOrReplace eqComparer entry entries
+                    let struct (newEntries, outcome) = insertOrReplace eqComparer entry entries
                     LeafWithCollisions newEntries, outcome
                 else
                     let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash
@@ -143,12 +142,12 @@ module internal Hamt =
                 let arrayIndex = childArrayIndex bitIndex bitmap
 
                 if containsChild bitIndex bitmap then
-                    let newChild, outcome =
+                    let struct (newChild, outcome) =
                         add eqComparer entry entryHash (nextLayerPrefix prefix) children[arrayIndex]
 
-                    Branch(bitmap, Array.put newChild arrayIndex children), outcome
+                    struct (Branch(bitmap, Array.put newChild arrayIndex children), outcome)
                 else
-                    Branch(Bitmap.setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), Added
+                    struct (Branch(Bitmap.setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), Added)
 
         let rec containsKey eqComparer targetKey targetHash prefix =
             function
