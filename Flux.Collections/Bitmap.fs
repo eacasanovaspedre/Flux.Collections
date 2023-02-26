@@ -5,21 +5,23 @@ open Bit
 [<Struct>]
 type Bitmap<'T> =
     | Bitmap of 'T
-    static member inline (<<<) ((Bitmap value), offset) = Bitmap(value <<< offset)
-    static member inline (>>>) ((Bitmap value), offset) = Bitmap(value >>> offset)
+    static member inline (<<<) (Bitmap value, offset) = Bitmap(value <<< offset)
+    static member inline (>>>) (Bitmap value, offset) = Bitmap(value >>> offset)
     static member inline (&&&) (Bitmap left, Bitmap right) = Bitmap(left &&& right)
     static member inline (|||) (Bitmap left, Bitmap right) = Bitmap(left ||| right)
     static member inline (~~~) (Bitmap single) = Bitmap(~~~single)
 
 module Bitmap =
 
-    let inline private (-) ((Bitmap minuend): Bitmap<'T>) ((Bitmap subtrahend): Bitmap<'T>): Bitmap<'T> =
+    let inline private (-) (Bitmap minuend: Bitmap<'T>) (Bitmap subtrahend: Bitmap<'T>): Bitmap<'T> =
         Bitmap(minuend - subtrahend)
 
     let inline underlying< ^T, ^A when ^T: (static member Underlying: 'T -> 'A)> (v: 'T) =
-        (^T: (static member Underlying: 'T -> 'A) (v))
+        (^T: (static member Underlying: 'T -> 'A) v)
 
-    let inline private unequal ((Bitmap a): Bitmap<'T>) ((Bitmap b): Bitmap<'T>) = underlying a <> underlying b
+    let inline private unequal (Bitmap a: Bitmap<'T>) (Bitmap b: Bitmap<'T>) = underlying a <> underlying b
+    
+    let inline private equal (Bitmap a: Bitmap<'T>) (Bitmap b: Bitmap<'T>) = underlying a = underlying b
 
     let inline noBit< ^T when ^T: (static member NoBit: unit -> ^T)>() =
         Bitmap(^T: (static member NoBit: unit -> 'T) ())
@@ -48,6 +50,8 @@ module Bitmap =
     let inline setBit index bitmap = bitmap ||| (bit index)
 
     let inline clearBit index bitmap = bitmap &&& ~~~(bit index)
+    
+    let inline areAllBitsOff bitmap = equal (noBit()) bitmap
 
 
 [<Struct>]

@@ -38,16 +38,20 @@ type Hamt<'K, 'V when 'K: equality> =
         member this.Values = this |> Hamt.keys |> Seq.map (fun k -> Hamt.find k this)
 
 module Hamt =
+    
+    module private Helper =
+        
+        let ofSeq emptyHamt (entries: ('K * 'V) seq) = 
+            let rec loop (enumerator: _ IEnumerator) hamt =
+                if enumerator.MoveNext() then
+                    let k, v = enumerator.Current
+                    loop enumerator (add k v hamt)
+                else
+                    hamt
+            loop (entries.GetEnumerator()) emptyHamt
 
     let emptyStructural<'K, 'V when 'K: equality> =
         Hamt<'K, 'V>.Empty KeyEqualityComparison.selectStructuralEqualityComparer
-
-    let emptyStandard<'K, 'V when 'K: equality> =
-        if typeof<'K>.IsValueType then
-            KeyEqualityComparison.nonStructuralEqualityComparer<'K>
-        else
-            EqualityComparer<'K>.Default
-        |> Hamt<'K, 'V>.Empty
 
     let empty<'K, 'V when 'K: equality> =
         Hamt<'K, 'V>.Empty KeyEqualityComparison.selectNonStructuralEqualityComparer<'K>
@@ -101,7 +105,7 @@ module Hamt =
             let hash = Key.uhash eqComparer key
             match Node.remove eqComparer key hash (Prefix.fullPrefixFromHash hash) root with
             | NotFound -> hamt
-            | Removed node -> Trie(node, count - 1, eqComparer)
+            | RemovedFrom node -> Trie(node, count - 1, eqComparer)
             | NothingLeft -> Empty eqComparer
 
     let toSeq hamt =
@@ -146,7 +150,13 @@ module Hamt =
         match maybeFind k h with
         | Some value -> (Some value, remove value h)
         | None -> None, h
-
+        
+    let ofSeq entries = Helper.ofSeq empty entries 
+        
+    let ofSeqStructural entries = Helper.ofSeq emptyStructural entries
+    
+    let ofSeqWith eqComparer entries = Helper.ofSeq (emptyWith eqComparer) entries
+    
     module Lens =
 
         let inline _key k = find k, add k

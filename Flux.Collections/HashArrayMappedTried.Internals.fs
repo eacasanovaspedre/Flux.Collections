@@ -38,8 +38,13 @@ module internal Hamt =
 
     type RemoveOutcome<'K, 'T> =
         | NothingLeft
-        | Removed of Node<'K, 'T>
+        | RemovedFrom of Node<'K, 'T>
         | NotFound
+        
+    type FilterOutcome<'K, 'T> =
+        | NothingRemoved
+        | AllRemoved
+        | NodeLeft of Node<'K, 'T>
 
     module Key =
         open System.Collections.Generic
@@ -63,7 +68,7 @@ module internal Hamt =
         let inline fullPrefixFromHash hash =
             currentLevelPrefixFromHash Key.HashSize hash
 
-        let inline prefixBits (Prefix (bits, _)) = bits
+        let inline bits (Prefix (bits, _)) = bits
 
         let inline length (Prefix (_, length)) = length
 
@@ -89,19 +94,37 @@ module internal Hamt =
                 | [] -> entries
 
             loop [] entries
+            
+        let filter predicate entries =
+            let rec loop toKeep modified =
+                function
+                | entry :: xs when predicate (KVEntry.key entry) (KVEntry.value entry) -> loop (entry :: toKeep) modified xs
+                | _ :: xs -> loop toKeep true xs
+                | [] when modified -> List.rev toKeep
+                | [] -> entries
+            loop [] false entries
 
     module Node =
 
         open Prefix
         open CollisionHelpers
 
+        /// Returns the index of the child to which the prefix points to
+        /// if prefix is xx...x00101 it points to the child at index 5 (101)
         let inline childBitIndex prefix =
-            (prefixBits prefix)
+            (bits prefix)
             &&& Bitmap.bitIndexMask<BitmapHolder> ()
             |> asBits
 
+        /// Returns true if the bit to which childBitIndex (index of the child) points to is on
         let inline containsChild childBitIndex bitmap = Bitmap.isBitOn childBitIndex bitmap
 
+        /// Returns the index in the array to which childBitIndex points to. The array contains only elements for which
+        /// the bitmap has bits on. If the bitmap has only 3 bits on, the children array would have 3 elements.
+        /// For a bitmap 0..001000001, only the bits 0 and 6 are on, so the children array would have items.
+        /// childArrayIndex 6 0..001000001 would return 1
+        /// It's important to first ensure that the target bit is on in the bitmap by calling containsChild before using
+        /// this function 
         let childArrayIndex childBitIndex bitmap =
             bitmap
             |> Bitmap.bitsLowerThan childBitIndex
@@ -217,34 +240,48 @@ module internal Hamt =
             | LeafWithCollisions entries when collisionHash eqComparer entries = targetHash ->
                 match removeIfExists eqComparer targetKey entries with
                 | newEntries when LanguagePrimitives.PhysicalEquality entries newEntries -> NotFound
-                | [ single ] -> Removed(Leaf single)
-                | moreThanOne -> Removed(LeafWithCollisions moreThanOne)
+                | [ single ] -> RemovedFrom(Leaf single)
+                | moreThanOne -> RemovedFrom(LeafWithCollisions moreThanOne)
             | LeafWithCollisions _ -> NotFound
             | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix
 
                 if containsChild bitIndex bitmap then
                     let childArrayIndex = childArrayIndex bitIndex bitmap
+                    let nextLayerPrefix = nextLayerPrefix prefix
+                    let childNode = Array.item childArrayIndex children
 
-                    match remove eqComparer targetKey targetHash (nextLayerPrefix prefix) (Array.item childArrayIndex children)
-                        with
+                    match remove eqComparer targetKey targetHash nextLayerPrefix childNode with
                     | NotFound -> NotFound
-                    | Removed child -> Removed(Branch(bitmap, Array.put child childArrayIndex children))
+                    | RemovedFrom child -> RemovedFrom (Branch (bitmap, Array.put child childArrayIndex children))
                     | NothingLeft ->
                         let newBitmap = Bitmap.clearBit bitIndex bitmap
 
-                        if Array.isEmpty children then
+                        if Bitmap.areAllBitsOff newBitmap then
                             NothingLeft
                         elif Array.length children = 1 then
-                            Removed(Array.head children)
+                            RemovedFrom (Array.head children)
                         else
-                            Removed(Branch(newBitmap, Array.remove childArrayIndex children))
+                            RemovedFrom (Branch (newBitmap, Array.remove childArrayIndex children))
                 else
                     NotFound
+              
+        let rec filter predicate prefix node =
+            match node with
+            | Leaf (KVEntry (key, value)) when predicate key value -> AllRemoved
+            | Leaf _ -> NothingRemoved
+            | LeafWithCollisions entries ->
+                match CollisionHelpers.filter predicate entries with
+                | newEntries when LanguagePrimitives.PhysicalEquality entries newEntries -> NothingRemoved
+                | [ single ] -> NodeLeft (Leaf single)
+                | moreThanOneLeft -> NodeLeft (LeafWithCollisions moreThanOneLeft)
+            | Branch (bitmap, children) ->
+                
+                
 
         let rec toSeq =
             function
-            | Leaf entry -> Seq.singleton entry
+            | Leaf entry -> Seq.singleton entry 
             | LeafWithCollisions entries -> upcast entries
             | Branch (_, children) -> Seq.collect toSeq children
 
