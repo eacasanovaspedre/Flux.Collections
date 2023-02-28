@@ -101,7 +101,7 @@ module Hamt =
             let hash = Key.uhash eqComparer key
             match Node.remove eqComparer key hash (Prefix.fullPrefixFromHash hash) root with
             | NotFound -> hamt
-            | Removed node -> Trie(node, count - 1, eqComparer)
+            | RemovedAndLeftNode node -> Trie(node, count - 1, eqComparer)
             | NothingLeft -> Empty eqComparer
 
     let toSeq hamt =
