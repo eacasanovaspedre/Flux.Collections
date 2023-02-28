@@ -7,8 +7,7 @@ exception KeyNotFoundException of Msg: string * Key: obj KeyNotFound with
     override this.Message = this.Msg
 
     static member inline throw key =
-        KeyNotFoundException("Key not found in Hamt", KeyNotFound(upcast key))
-        |> raise
+        KeyNotFoundException("Key not found in Hamt", KeyNotFound(upcast key)) |> raise
 
 namespace Flux.Collections.Internals
 
@@ -18,11 +17,11 @@ open Flux.Bit
 
 module internal Hamt =
 
-    #if X64
+#if X64
     type BitmapHolder = Bitmap64
-    #else
+#else
     type BitmapHolder = Bitmap32
-    #endif
+#endif
 
     type Node<'K, 'T> =
         | Leaf of KVEntry<'K, 'T>
@@ -38,34 +37,30 @@ module internal Hamt =
 
     type RemoveOutcome<'K, 'T> =
         | NothingLeft
-        | Removed of Node<'K, 'T>
+        | RemovedAndLeftNode of Node<'K, 'T>
         | NotFound
 
     module Key =
         open System.Collections.Generic
-        
+
         [<Literal>]
         let HashSize = 32<bit>
-        
-        let inline uhash (eqComparer: #IEqualityComparer<_>) key =
-            key
-            |> eqComparer.GetHashCode
-            |> uint32
 
-        let inline equals (eqComparer: #IEqualityComparer<_>) k1 k2 =
-            eqComparer.Equals (k1, k2)
+        let inline uhash (eqComparer: #IEqualityComparer<_>) key = key |> eqComparer.GetHashCode |> uint32
+
+        let inline equals (eqComparer: #IEqualityComparer<_>) k1 k2 = eqComparer.Equals(k1, k2)
 
     module Prefix =
 
         let inline currentLevelPrefixFromHash currentLength hash =
-            Prefix (rshift hash (Key.HashSize - currentLength), currentLength)
+            Prefix(rshift hash (Key.HashSize - currentLength), currentLength)
 
         let inline fullPrefixFromHash hash =
             currentLevelPrefixFromHash Key.HashSize hash
 
-        let inline prefixBits (Prefix (bits, _)) = bits
+        let inline prefixBits (Prefix(bits, _)) = bits
 
-        let inline length (Prefix (_, length)) = length
+        let inline length (Prefix(_, length)) = length
 
     module private CollisionHelpers =
 
@@ -75,7 +70,8 @@ module internal Hamt =
         let insertOrReplace eqComparer entry entries =
             let rec loop before =
                 function
-                | KVEntry (key, _) :: after when Key.equals eqComparer key (KVEntry.key entry) -> struct ((List.rev before) @ entry :: after, Replaced)
+                | KVEntry(key, _) :: after when Key.equals eqComparer key (KVEntry.key entry) ->
+                    struct ((List.rev before) @ entry :: after, Replaced)
                 | x :: xs -> loop (x :: before) xs
                 | [] -> struct (entry :: before, Added)
 
@@ -84,7 +80,7 @@ module internal Hamt =
         let removeIfExists eqComparer targetKey entries =
             let rec loop before =
                 function
-                | KVEntry (key, _) :: after when Key.equals eqComparer key targetKey -> (List.rev before) @ after
+                | KVEntry(key, _) :: after when Key.equals eqComparer key targetKey -> (List.rev before) @ after
                 | x :: xs -> loop (x :: before) xs
                 | [] -> entries
 
@@ -96,25 +92,21 @@ module internal Hamt =
         open CollisionHelpers
 
         let inline childBitIndex prefix =
-            (prefixBits prefix)
-            &&& Bitmap.bitIndexMask<BitmapHolder> ()
-            |> asBits
+            (prefixBits prefix) &&& Bitmap.bitIndexMask<BitmapHolder> () |> asBits
 
         let inline containsChild childBitIndex bitmap = Bitmap.isBitOn childBitIndex bitmap
 
         let childArrayIndex childBitIndex bitmap =
-            bitmap
-            |> Bitmap.bitsLowerThan childBitIndex
-            |> Bitmap.countBitsOn
-            |> int
+            bitmap |> Bitmap.bitsLowerThan childBitIndex |> Bitmap.countBitsOn |> int
 
-        let inline nextLayerPrefix (Prefix (bits, length)) =
+        let inline nextLayerPrefix (Prefix(bits, length)) =
             let shift = min length (Bitmap.bitIndexBits<BitmapHolder> ())
             Prefix(rshift bits shift, length - shift)
 
         let rec add eqComparer entry entryHash prefix node =
             match node with
-            | Leaf oldEntry when Key.equals eqComparer (KVEntry.key entry) (KVEntry.key oldEntry) -> struct (Leaf entry, Replaced)
+            | Leaf oldEntry when Key.equals eqComparer (KVEntry.key entry) (KVEntry.key oldEntry) ->
+                struct (Leaf entry, Replaced)
             | Leaf oldEntry ->
                 let oldHash = Key.uhash eqComparer (KVEntry.key oldEntry)
 
@@ -135,9 +127,9 @@ module internal Hamt =
                     let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash
                     let collisionBitIndex = childBitIndex collisionPrefix
 
-                    Branch (Bitmap.bit collisionBitIndex, [| node |])
+                    Branch(Bitmap.bit collisionBitIndex, [| node |])
                     |> add eqComparer entry entryHash prefix
-            | Branch (bitmap, children) ->
+            | Branch(bitmap, children) ->
                 let bitIndex = childBitIndex prefix
                 let arrayIndex = childArrayIndex bitIndex bitmap
 
@@ -151,94 +143,115 @@ module internal Hamt =
 
         let rec containsKey eqComparer targetKey targetHash prefix =
             function
-            | Leaf (KVEntry (key, _)) when Key.equals eqComparer key targetKey -> true
+            | Leaf(KVEntry(key, _)) when Key.equals eqComparer key targetKey -> true
             | Leaf _ -> false
             | LeafWithCollisions entries when collisionHash eqComparer entries = targetHash ->
                 let rec existsIn =
                     function
-                    | KVEntry (key, _) :: _ when Key.equals eqComparer key targetKey -> true
+                    | KVEntry(key, _) :: _ when Key.equals eqComparer key targetKey -> true
                     | _ :: xs -> existsIn xs
                     | [] -> false
 
                 existsIn entries
             | LeafWithCollisions _ -> false
-            | Branch (bitmap, children) ->
+            | Branch(bitmap, children) ->
                 let bitIndex = childBitIndex prefix
 
                 containsChild bitIndex bitmap
-                && containsKey eqComparer targetKey targetHash (nextLayerPrefix prefix) children[childArrayIndex bitIndex bitmap]
+                && containsKey
+                    eqComparer
+                    targetKey
+                    targetHash
+                    (nextLayerPrefix prefix)
+                    children[childArrayIndex bitIndex bitmap]
 
         let rec find eqComparer targetKey targetHash prefix node =
             match node with
-            | Leaf (KVEntry (key, value)) when Key.equals eqComparer key targetKey -> value
+            | Leaf(KVEntry(key, value)) when Key.equals eqComparer key targetKey -> value
             | LeafWithCollisions entries when collisionHash eqComparer entries = targetHash ->
                 let rec findValue =
                     function
-                    | KVEntry (key, value) :: _ when Key.equals eqComparer key targetKey -> value
+                    | KVEntry(key, value) :: _ when Key.equals eqComparer key targetKey -> value
                     | _ :: xs -> findValue xs
                     | [] -> KeyNotFoundException.throw targetKey
 
                 findValue entries
             | Leaf _
             | LeafWithCollisions _ -> KeyNotFoundException.throw targetKey
-            | Branch (bitmap, children) ->
+            | Branch(bitmap, children) ->
                 let bitIndex = childBitIndex prefix
 
                 if containsChild bitIndex bitmap then
-                    find eqComparer targetKey targetHash (nextLayerPrefix prefix) children[childArrayIndex bitIndex bitmap]
+                    find
+                        eqComparer
+                        targetKey
+                        targetHash
+                        (nextLayerPrefix prefix)
+                        children[childArrayIndex bitIndex bitmap]
                 else
                     KeyNotFoundException.throw targetKey
 
         let rec maybeFind eqComparer targetKey targetHash prefix node =
             match node with
-            | Leaf (KVEntry (key, value)) when Key.equals eqComparer key targetKey -> Some value
+            | Leaf(KVEntry(key, value)) when Key.equals eqComparer key targetKey -> Some value
             | Leaf _ -> None
             | LeafWithCollisions entries when collisionHash eqComparer entries = targetHash ->
                 let rec maybeFindValue =
                     function
-                    | KVEntry (key, value) :: _ when Key.equals eqComparer key targetKey -> Some value
+                    | KVEntry(key, value) :: _ when Key.equals eqComparer key targetKey -> Some value
                     | _ :: xs -> maybeFindValue xs
                     | [] -> None
 
                 maybeFindValue entries
             | LeafWithCollisions _ -> None
-            | Branch (bitmap, children) ->
+            | Branch(bitmap, children) ->
                 let bitIndex = childBitIndex prefix
 
                 if containsChild bitIndex bitmap then
-                    maybeFind eqComparer targetKey targetHash (nextLayerPrefix prefix) children[childArrayIndex bitIndex bitmap]
+                    maybeFind
+                        eqComparer
+                        targetKey
+                        targetHash
+                        (nextLayerPrefix prefix)
+                        children[childArrayIndex bitIndex bitmap]
                 else
                     None
 
         let rec remove eqComparer targetKey targetHash prefix node =
             match node with
-            | Leaf (KVEntry (key, _)) when Key.equals eqComparer key targetKey -> NothingLeft
+            | Leaf(KVEntry(key, _)) when Key.equals eqComparer key targetKey -> NothingLeft
             | Leaf _ -> NotFound
             | LeafWithCollisions entries when collisionHash eqComparer entries = targetHash ->
                 match removeIfExists eqComparer targetKey entries with
                 | newEntries when LanguagePrimitives.PhysicalEquality entries newEntries -> NotFound
-                | [ single ] -> Removed(Leaf single)
-                | moreThanOne -> Removed(LeafWithCollisions moreThanOne)
+                | [ single ] -> RemovedAndLeftNode(Leaf single)
+                | moreThanOne -> RemovedAndLeftNode(LeafWithCollisions moreThanOne)
             | LeafWithCollisions _ -> NotFound
-            | Branch (bitmap, children) ->
+            | Branch(bitmap, children) ->
                 let bitIndex = childBitIndex prefix
 
                 if containsChild bitIndex bitmap then
                     let childArrayIndex = childArrayIndex bitIndex bitmap
+                    let nextLayerPrefix = nextLayerPrefix prefix
+                    let child = children[childArrayIndex]
+                    let outcome = remove eqComparer targetKey targetHash nextLayerPrefix child
 
-                    match remove eqComparer targetKey targetHash (nextLayerPrefix prefix) (Array.item childArrayIndex children)
-                        with
+                    match outcome with
                     | NotFound -> NotFound
-                    | Removed child -> Removed(Branch(bitmap, Array.put child childArrayIndex children))
+                    | RemovedAndLeftNode child ->
+                        RemovedAndLeftNode(Branch(bitmap, Array.put child childArrayIndex children))
                     | NothingLeft ->
-                        let newBitmap = Bitmap.clearBit bitIndex bitmap
-
-                        if Array.isEmpty children then
+                        if Array.length children = 1 then
                             NothingLeft
-                        elif Array.length children = 1 then
-                            Removed(Array.head children)
+                        // This next commented code is invalid, because it could raise a branch a level up but it's
+                        // bitmap would be the same, based on a prefix a level lower, thus rendering all children
+                        // impossible to find. Consider the adding a new Branch (DeeperBranch) case that represents a
+                        // branch that was raised
+                        // elif Array.length children = 2 then
+                        //     RemovedAndLeftNode children[if childArrayIndex = 0 then 1 else 0]
                         else
-                            Removed(Branch(newBitmap, Array.remove childArrayIndex children))
+                            let newBitmap = Bitmap.clearBit bitIndex bitmap
+                            RemovedAndLeftNode(Branch(newBitmap, Array.remove childArrayIndex children))
                 else
                     NotFound
 
@@ -246,16 +259,16 @@ module internal Hamt =
             function
             | Leaf entry -> Seq.singleton entry
             | LeafWithCollisions entries -> upcast entries
-            | Branch (_, children) -> Seq.collect toSeq children
+            | Branch(_, children) -> Seq.collect toSeq children
 
         let rec toSeqOfPairs =
             function
             | Leaf entry -> entry |> KVEntry.asPair |> Seq.singleton
             | LeafWithCollisions entries -> entries |> Seq.map KVEntry.asPair
-            | Branch (_, children) -> Seq.collect toSeqOfPairs children
+            | Branch(_, children) -> Seq.collect toSeqOfPairs children
 
         let rec keys =
             function
             | Leaf entry -> Seq.singleton (KVEntry.key entry)
             | LeafWithCollisions entries -> Seq.map KVEntry.key entries
-            | Branch (_, children) -> Seq.collect keys children
+            | Branch(_, children) -> Seq.collect keys children
