@@ -116,6 +116,11 @@ module Hamt =
             | NothingRemoved -> hamt
             | AllRemoved _ -> Empty eqComparer
             | NodeLeft (node, removedCount) -> Trie (node, count - removedCount, eqComparer)
+            
+    let exists predicate hamt =
+        match hamt with
+        | Empty _ -> false
+        | Trie (root, _, _) -> Node.exists predicate root
 
     let toSeq hamt =
         match hamt with

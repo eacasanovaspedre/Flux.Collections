@@ -25,9 +25,9 @@ module internal Hamt =
 #endif
 
     type Node<'K, 'T> =
-        | Leaf of KVEntry<'K, 'T>
-        | LeafWithCollisions of KVEntry<'K, 'T> list
-        | Branch of Bitmap<BitmapHolder> * Node<'K, 'T> array
+        | Leaf of Entry: KVEntry<'K, 'T>
+        | LeafWithCollisions of Entries: KVEntry<'K, 'T> list
+        | Branch of Bitmap: Bitmap<BitmapHolder> * Children: Node<'K, 'T> array
 
     [<Struct>]
     type Prefix = Prefix of bits: uint32 * length: int<bit>
@@ -68,7 +68,7 @@ module internal Hamt =
 
         let inline length (Prefix (_, length)) = length
 
-    module private CollisionHelpers =
+    module private Collision =
 
         let inline collisionHash eqComparer entries =
             entries |> List.head |> KVEntry.key |> Key.uhash eqComparer
@@ -102,11 +102,17 @@ module internal Hamt =
                 | [] -> entries
 
             loop [] false entries
+            
+        let rec exists predicate = function
+            | KVEntry (key, value)::xs when predicate key value -> true
+            | _::xs -> exists predicate xs
+            | [] -> false
+            
 
     module Node =
 
         open Prefix
-        open CollisionHelpers
+        open Collision
 
         /// Returns the index of the child to which the prefix points to
         /// if prefix is xx...x00101 it points to the child at index 5 (101)
@@ -281,12 +287,11 @@ module internal Hamt =
                 else
                     NotFound
 
-        let rec filter predicate node =
-            match node with
+        let rec filter predicate = function
             | Leaf (KVEntry (key, value)) when predicate key value -> NothingRemoved
             | Leaf _ -> AllRemoved 1
             | LeafWithCollisions entries ->
-                match CollisionHelpers.filter predicate entries with
+                match Collision.filter predicate entries with
                 | newEntries when LanguagePrimitives.PhysicalEquality entries newEntries -> NothingRemoved
                 | [ single ] -> NodeLeft (Leaf single, entries.Length - 1)
                 | moreThanOneLeft ->
@@ -355,6 +360,18 @@ module internal Hamt =
                     NodeLeft (nodeLeft, totalRemovedCount)
 
             loopOverChildren bitmap bitmap 0 [] 0 0
+            
+        let rec exists predicate = function
+            | Leaf (KVEntry (key, value)) -> predicate key value
+            | LeafWithCollisions entries -> Collision.exists predicate entries
+            | Branch (_, children) ->
+                let rec loopOverChildren index =
+                    if index < children.Length then
+                        let child = children[index]
+                        exists predicate child || loopOverChildren (index + 1)
+                    else
+                        false
+                loopOverChildren 0
 
         let rec toSeq =
             function
