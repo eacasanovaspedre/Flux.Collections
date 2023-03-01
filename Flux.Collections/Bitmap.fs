@@ -3,6 +3,7 @@ namespace Flux
 open Bit
 
 [<Struct>]
+[<StructuredFormatDisplay("{Display}")>]
 type Bitmap<'T> =
     | Bitmap of 'T
     static member inline (<<<) (Bitmap value, offset) = Bitmap(value <<< offset)
@@ -10,6 +11,8 @@ type Bitmap<'T> =
     static member inline (&&&) (Bitmap left, Bitmap right) = Bitmap(left &&& right)
     static member inline (|||) (Bitmap left, Bitmap right) = Bitmap(left ||| right)
     static member inline (~~~) (Bitmap single) = Bitmap(~~~single)
+    override this.ToString () = match this with Bitmap x -> $"{x}"
+    member this.Display = this.ToString()
 
 module Bitmap =
 
@@ -40,6 +43,10 @@ module Bitmap =
 
     let inline countBitsOn< ^T when ^T: (static member CountBitsOn: 'T -> int<bit>)> (Bitmap actualBits) =
         (^T: (static member CountBitsOn: 'T -> int<bit>) actualBits)
+        
+    let inline difference x y = x &&& ~~~y
+    
+    let inline union x y = x ||| y
 
     let inline bit index = lshift (firstBit()) index
 
@@ -47,12 +54,13 @@ module Bitmap =
 
     let inline bitsLowerThan index bitmap = (bit index - firstBit()) &&& bitmap
 
-    let inline setBit index bitmap = bitmap ||| (bit index)
+    let inline setBit index bitmap = union bitmap (bit index)
 
-    let inline clearBit index bitmap = bitmap &&& ~~~(bit index)
+    let inline clearBit index bitmap = difference bitmap (bit index)
     
     let inline areAllBitsOff bitmap = equal (noBit()) bitmap
-
+    
+    let inline getLeastSignificantDigitOn (Bitmap x) = Bitmap (x &&& -x)
 
 [<Struct>]
 [<NoEquality>]
@@ -79,12 +87,14 @@ type Bitmap32 =
     ///Returns the underlying type used to store this bitmap
     static member inline Underlying(Bitmap32 v) = v
 
+    static member inline (~-) (Bitmap32 value) = value |> int |> (~-) |> uint32 |> Bitmap32
     static member inline (-) (Bitmap32 minuend, Bitmap32 subtrahend) = Bitmap32(minuend - subtrahend)
-    static member inline (<<<) ((Bitmap32 value), offset) = Bitmap32(value <<< offset)
-    static member inline (>>>) ((Bitmap32 value), offset) = Bitmap32(value >>> offset)
+    static member inline (<<<) (Bitmap32 value, offset) = Bitmap32(value <<< offset)
+    static member inline (>>>) (Bitmap32 value, offset) = Bitmap32(value >>> offset)
     static member inline (&&&) (Bitmap32 left, Bitmap32 right) = Bitmap32(left &&& right)
     static member inline (|||) (Bitmap32 left, Bitmap32 right) = Bitmap32(left ||| right)
     static member inline (~~~) (Bitmap32 single) = Bitmap32(~~~single)
+    override this.ToString () = match this with Bitmap32 x -> $"%B{x}"
 
 [<Struct>]
 [<NoEquality>]
@@ -97,9 +107,11 @@ type Bitmap64 =
     static member inline BitIndexMask() = 0x3Fu
     static member inline BitIndexBits() = 6<bit>
     static member inline Underlying(Bitmap64 v) = v
+    static member inline (~-) (Bitmap64 value) = value |> int |> (~-) |> uint64 |> Bitmap64
     static member inline (-) (Bitmap64 minuend, Bitmap64 subtrahend) = Bitmap64(minuend - subtrahend)
-    static member inline (<<<) ((Bitmap64 value), offset) = Bitmap64(value <<< offset)
-    static member inline (>>>) ((Bitmap64 value), offset) = Bitmap64(value >>> offset)
+    static member inline (<<<) (Bitmap64 value, offset) = Bitmap64(value <<< offset)
+    static member inline (>>>) (Bitmap64 value, offset) = Bitmap64(value >>> offset)
     static member inline (&&&) (Bitmap64 left, Bitmap64 right) = Bitmap64(left &&& right)
     static member inline (|||) (Bitmap64 left, Bitmap64 right) = Bitmap64(left ||| right)
     static member inline (~~~) (Bitmap64 single) = Bitmap64(~~~single)
+    override this.ToString () = match this with Bitmap64 x -> $"%B{x}"

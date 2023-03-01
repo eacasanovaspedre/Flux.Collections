@@ -1,5 +1,6 @@
 ﻿namespace Flux.Collections.Benchmark
 
+
 module Main =
     open BenchmarkDotNet.Running
     open System.Reflection

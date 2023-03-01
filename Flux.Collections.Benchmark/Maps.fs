@@ -52,9 +52,6 @@ module FindDataset =
     let hamtOfSeqStructural seq =
         Seq.fold (fun hamt (k, v) -> Hamt.add k v hamt) Hamt.emptyStructural seq
 
-    let hamtOfSeqStandard seq =
-        Seq.fold (fun hamt (k, v) -> Hamt.add k v hamt) Hamt.emptyStandard seq
-
     let hamtOfSeq seq =
         Seq.fold (fun hamt (k, v) -> Hamt.add k v hamt) Hamt.empty seq
 

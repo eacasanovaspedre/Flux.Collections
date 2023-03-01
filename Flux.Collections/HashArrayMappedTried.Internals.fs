@@ -7,7 +7,8 @@ exception KeyNotFoundException of Msg: string * Key: obj KeyNotFound with
     override this.Message = this.Msg
 
     static member inline throw key =
-        KeyNotFoundException("Key not found in Hamt", KeyNotFound(upcast key)) |> raise
+        KeyNotFoundException ("Key not found in Hamt", KeyNotFound (upcast key))
+        |> raise
 
 namespace Flux.Collections.Internals
 
@@ -39,11 +40,11 @@ module internal Hamt =
         | NothingLeft
         | RemovedAndLeftNode of Node<'K, 'T>
         | NotFound
-        
+
     type FilterOutcome<'K, 'T> =
         | NothingRemoved
-        | AllRemoved
-        | NodeLeft of Node<'K, 'T>
+        | AllRemoved of RemovedCount: int
+        | NodeLeft of Node: Node<'K, 'T> * RemovedCount: int
 
     module Key =
         open System.Collections.Generic
@@ -53,7 +54,7 @@ module internal Hamt =
 
         let inline uhash (eqComparer: #IEqualityComparer<_>) key = key |> eqComparer.GetHashCode |> uint32
 
-        let inline equals (eqComparer: #IEqualityComparer<_>) k1 k2 = eqComparer.Equals(k1, k2)
+        let inline equals (eqComparer: #IEqualityComparer<_>) k1 k2 = eqComparer.Equals (k1, k2)
 
     module Prefix =
 
@@ -90,14 +91,16 @@ module internal Hamt =
                 | [] -> entries
 
             loop [] entries
-            
+
         let filter predicate entries =
             let rec loop toKeep modified =
                 function
-                | entry :: xs when predicate (KVEntry.key entry) (KVEntry.value entry) -> loop (entry :: toKeep) modified xs
+                | entry :: xs when predicate (KVEntry.key entry) (KVEntry.value entry) ->
+                    loop (entry :: toKeep) modified xs
                 | _ :: xs -> loop toKeep true xs
                 | [] when modified -> List.rev toKeep
                 | [] -> entries
+
             loop [] false entries
 
     module Node =
@@ -118,13 +121,13 @@ module internal Hamt =
         /// For a bitmap 0..001000001, only the bits 0 and 6 are on, so the children array would have items.
         /// childArrayIndex 6 0..001000001 would return 1
         /// It's important to first ensure that the target bit is on in the bitmap by calling containsChild before using
-        /// this function 
+        /// this function
         let childArrayIndex childBitIndex bitmap =
             bitmap |> Bitmap.bitsLowerThan childBitIndex |> Bitmap.countBitsOn |> int
 
         let inline nextLayerPrefix (Prefix (bits, length)) =
             let shift = min length (Bitmap.bitIndexBits<BitmapHolder> ())
-            Prefix(rshift bits shift, length - shift)
+            Prefix (rshift bits shift, length - shift)
 
         let rec add eqComparer entry entryHash prefix node =
             match node with
@@ -138,7 +141,7 @@ module internal Hamt =
                 else
                     let oldPrefix = currentLevelPrefixFromHash (length prefix) oldHash
 
-                    Branch(Bitmap.bit (childBitIndex oldPrefix), [| node |])
+                    Branch (Bitmap.bit (childBitIndex oldPrefix), [| node |])
                     |> add eqComparer entry entryHash prefix
             | LeafWithCollisions entries ->
                 let collisionHash = collisionHash eqComparer entries
@@ -160,9 +163,9 @@ module internal Hamt =
                     let struct (newChild, outcome) =
                         add eqComparer entry entryHash (nextLayerPrefix prefix) children[arrayIndex]
 
-                    struct (Branch(bitmap, Array.put newChild arrayIndex children), outcome)
+                    struct (Branch (bitmap, Array.put newChild arrayIndex children), outcome)
                 else
-                    struct (Branch(Bitmap.setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), Added)
+                    struct (Branch (Bitmap.setBit bitIndex bitmap, Array.insert (Leaf entry) arrayIndex children), Added)
 
         let rec containsKey eqComparer targetKey targetHash prefix =
             function
@@ -277,23 +280,85 @@ module internal Hamt =
                             RemovedAndLeftNode (Branch (newBitmap, Array.remove childArrayIndex children))
                 else
                     NotFound
-              
-        let rec filter predicate prefix node =
+
+        let rec filter predicate node =
             match node with
-            | Leaf (KVEntry (key, value)) when predicate key value -> AllRemoved
-            | Leaf _ -> NothingRemoved
+            | Leaf (KVEntry (key, value)) when predicate key value -> NothingRemoved
+            | Leaf _ -> AllRemoved 1
             | LeafWithCollisions entries ->
                 match CollisionHelpers.filter predicate entries with
                 | newEntries when LanguagePrimitives.PhysicalEquality entries newEntries -> NothingRemoved
-                | [ single ] -> NodeLeft (Leaf single)
-                | moreThanOneLeft -> NodeLeft (LeafWithCollisions moreThanOneLeft)
-            | Branch (bitmap, children) ->
-                
-                
+                | [ single ] -> NodeLeft (Leaf single, entries.Length - 1)
+                | moreThanOneLeft ->
+                    NodeLeft (LeafWithCollisions moreThanOneLeft, entries.Length - moreThanOneLeft.Length)
+            | Branch (bitmap, children) -> filterBranch predicate bitmap children
+
+        and filterBranch predicate bitmap children =
+            let rec loopOverChildren stepBitmap finalBitmap totalRemovedCount chosenNodes chosenCount index =
+                if index < children.Length then
+                    let nextIndex = index + 1
+                    let currentBit = Bitmap.getLeastSignificantDigitOn stepBitmap
+                    let nextStepBitmap = Bitmap.difference stepBitmap currentBit
+                    let child = children[index]
+                    let outcome = filter predicate child
+
+                    match outcome with
+                    | NothingRemoved ->
+                        let nextChosenNodes = child :: chosenNodes
+                        let nextChosenCount = chosenCount + 1
+
+                        loopOverChildren
+                            nextStepBitmap
+                            finalBitmap
+                            totalRemovedCount
+                            nextChosenNodes
+                            nextChosenCount
+                            nextIndex
+                    | NodeLeft (node, removedCount) ->
+                        let nextTotalRemovedCount = totalRemovedCount + removedCount
+                        let nextChosenNodes = node :: chosenNodes
+                        let nextChosenCount = chosenCount + 1
+
+                        loopOverChildren
+                            nextStepBitmap
+                            finalBitmap
+                            nextTotalRemovedCount
+                            nextChosenNodes
+                            nextChosenCount
+                            nextIndex
+                    | AllRemoved removedCount ->
+                        let nextFinalBitmap = Bitmap.difference finalBitmap currentBit
+                        let nextTotalRemovedCount = (totalRemovedCount + removedCount)
+
+                        loopOverChildren
+                            nextStepBitmap
+                            nextFinalBitmap
+                            nextTotalRemovedCount
+                            chosenNodes
+                            chosenCount
+                            nextIndex
+                elif chosenCount = 0 then
+                    AllRemoved totalRemovedCount
+                elif totalRemovedCount = 0 then
+                    NothingRemoved
+                else
+                    let children = Array.zeroCreate chosenCount
+
+                    let rec toArray index list =
+                        if index >= 0 then
+                            children[index] <- List.head list
+                            toArray (index - 1) (List.tail list)
+                        else
+                            children
+
+                    let nodeLeft = Branch (finalBitmap, toArray (chosenCount - 1) chosenNodes)
+                    NodeLeft (nodeLeft, totalRemovedCount)
+
+            loopOverChildren bitmap bitmap 0 [] 0 0
 
         let rec toSeq =
             function
-            | Leaf entry -> Seq.singleton entry 
+            | Leaf entry -> Seq.singleton entry
             | LeafWithCollisions entries -> upcast entries
             | Branch (_, children) -> Seq.collect toSeq children
 
