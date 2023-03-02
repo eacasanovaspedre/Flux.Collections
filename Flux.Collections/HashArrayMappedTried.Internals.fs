@@ -46,6 +46,11 @@ module internal Hamt =
         | AllRemoved of RemovedCount: int
         | NodeLeft of Node: Node<'K, 'T> * RemovedCount: int
 
+    type PartitionOutcome<'K, 'T> =
+        | LeafAccepted of AcceptedLeaf: Node<'K, 'T>
+        | LeafRejected of RejectedLeaf: Node<'K, 'T>
+        | NodeSplit of AcceptedPart: Node<'K, 'T> * RejectedPart: Node<'K, 'T> * RejectedCount: int
+
     module Key =
         open System.Collections.Generic
 
@@ -422,6 +427,43 @@ module internal Hamt =
             | LeafWithCollisions entries ->
                 LeafWithCollisions (List.map (fun (KVEntry (k, v)) -> KVEntry (k, mapper k v)) entries)
             | Branch (bitmap, children) -> Branch (bitmap, Array.map (fun node -> map mapper node) children)
+
+        // let rec partition predicate node =
+        //     match node with
+        //     | Leaf (KVEntry (key, value)) when predicate key value -> LeafAccepted node
+        //     | Leaf _ -> LeafRejected node
+        //     | LeafWithCollisions entries ->
+        //         let accepted, rejected = List.partition (fun entry -> predicate (KVEntry.key entry) (KVEntry.value entry)) entries
+        //         NodeSplit (LeafWithCollisions accepted, LeafWithCollisions rejected, -4000) //set this number
+        //     | Branch (bitmap, children) ->
+        //         partitionBranch predicate bitmap children
+
+        // and partitionBranch predicate bitmap children =
+        //     let rec loopOverChildren stepBitmap bitmapAccepted bitmapRejected entriesRejectedCount acceptedChildren rejectedChildren acceptedChildCount rejectedChildCount index =
+        //         if index < children.Length then
+        //             let nextIndex = index + 1
+        //             let currentBit = Bitmap.getLeastSignificantDigitOn stepBitmap
+        //             let nextStepBitmap = Bitmap.difference stepBitmap currentBit
+        //             let child = children[index]
+        //             let outcome = partition predicate child
+        //             match outcome with
+        //             | LeafAccepted _ ->
+        //                 let nextBitmapRejected = Bitmap.difference bitmapRejected currentBit
+        //                 let nextAcceptedChildCount = acceptedChildCount + 1
+        //                 loopOverChildren nextStepBitmap bitmapAccepted nextBitmapRejected entriesRejectedCount (child::acceptedChildren) rejectedChildren nextAcceptedChildCount rejectedChildCount nextIndex
+        //             | LeafRejected _ ->
+        //                 let nextBitmapAccepted = Bitmap.difference bitmapAccepted currentBit
+        //                 let nextEntriesRejectedCount = entriesRejectedCount + 1
+        //                 let nextRejectedChildCount = rejectedChildCount + 1
+        //                 loopOverChildren nextStepBitmap nextBitmapAccepted bitmapRejected nextEntriesRejectedCount acceptedChildren (child::rejectedChildren) acceptedChildCount nextRejectedChildCount nextIndex
+        //             | NodeSplit (acceptedNode, rejectedNode, rejectedEntryCount) ->
+        //                 let nextEntriesRejectedCount = entriesRejectedCount + rejectedEntryCount
+        //                 let nextAcceptedChildCount = acceptedChildCount + 1
+        //                 let nextRejectedChildCount = rejectedChildCount + 1
+        //                 loopOverChildren nextStepBitmap bitmapAccepted bitmapRejected nextEntriesRejectedCount (acceptedNode :: acceptedChildren) (rejectedNode :: rejectedChildren) nextAcceptedChildCount nextRejectedChildCount nextIndex
+        //         else
+        //             1
+        //     loopOverChildren bitmap bitmap bitmap 0 [] [] 0
 
         let rec toSeq =
             function
