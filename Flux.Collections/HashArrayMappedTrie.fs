@@ -13,7 +13,7 @@ type Hamt<'K, 'V when 'K: equality> =
         member this.GetEnumerator() : IEnumerator<KeyValuePair<'K, 'V>> =
             this
             |> Hamt.toSeq
-            |> Seq.map (fun entry -> KeyValuePair(KVEntry.key entry, KVEntry.value entry))
+            |> Seq.map (fun entry -> KeyValuePair (KVEntry.key entry, KVEntry.value entry))
             |> Enumerable.enumerator
 
         member this.GetEnumerator() : System.Collections.IEnumerator =
@@ -38,17 +38,18 @@ type Hamt<'K, 'V when 'K: equality> =
         member this.Values = this |> Hamt.keys |> Seq.map (fun k -> Hamt.find k this)
 
 module Hamt =
-    
+
     module private Helper =
-        
-        let ofSeq emptyHamt (entries: ('K * 'V) seq) = 
+
+        let ofSeq emptyHamt (entries: ('K * 'V) seq) =
             let rec loop (enumerator: _ IEnumerator) hamt =
-                if enumerator.MoveNext() then
+                if enumerator.MoveNext () then
                     let k, v = enumerator.Current
                     loop enumerator (add k v hamt)
                 else
                     hamt
-            loop (entries.GetEnumerator()) emptyHamt
+
+            loop (entries.GetEnumerator ()) emptyHamt
 
     let emptyStructural<'K, 'V when 'K: equality> =
         Hamt<'K, 'V>.Empty KeyEqualityComparison.selectStructuralEqualityComparer
@@ -66,76 +67,93 @@ module Hamt =
     let count =
         function
         | Empty _ -> 0
-        | Trie(_, count, _) -> count
-        
+        | Trie (_, count, _) -> count
+
     let add key value =
         function
-        | Empty eqComparer -> Trie(Leaf(KVEntry(key, value)), 1, eqComparer)
-        | Trie(root, count, eqComparer) ->
+        | Empty eqComparer -> Trie (Leaf (KVEntry (key, value)), 1, eqComparer)
+        | Trie (root, count, eqComparer) ->
             let hash = Key.uhash eqComparer key
-            match Node.add eqComparer (KVEntry(key, value)) hash (Prefix.fullPrefixFromHash hash) root with
-            | struct (newRoot, Added) -> Trie(newRoot, count + 1, eqComparer)
-            | struct (newRoot, Replaced) -> Trie(newRoot, count, eqComparer)
+
+            match Node.add eqComparer (KVEntry (key, value)) hash (Prefix.fullPrefixFromHash hash) root with
+            | struct (newRoot, Added) -> Trie (newRoot, count + 1, eqComparer)
+            | struct (newRoot, Replaced) -> Trie (newRoot, count, eqComparer)
 
     let containsKey key =
         function
         | Empty _ -> false
-        | Trie(root, _, eqComparer) ->
+        | Trie (root, _, eqComparer) ->
             let hash = Key.uhash eqComparer key
             Node.containsKey eqComparer key hash (Prefix.fullPrefixFromHash hash) root
 
     let maybeFind key =
         function
         | Empty _ -> None
-        | Trie(root, _, eqComparer) ->
+        | Trie (root, _, eqComparer) ->
             let hash = Key.uhash eqComparer key
             Node.maybeFind eqComparer key hash (Prefix.fullPrefixFromHash hash) root
 
     let find key =
         function
         | Empty _ -> KeyNotFoundException.throw key
-        | Trie(root, _, eqComparer) ->
+        | Trie (root, _, eqComparer) ->
             let hash = Key.uhash eqComparer key
             Node.find eqComparer key hash (Prefix.fullPrefixFromHash hash) root
 
     let remove key hamt =
         match hamt with
         | Empty _ -> hamt
-        | Trie(root, count, eqComparer) ->
+        | Trie (root, count, eqComparer) ->
             let hash = Key.uhash eqComparer key
+
             match Node.remove eqComparer key hash (Prefix.fullPrefixFromHash hash) root with
             | NotFound -> hamt
-            | RemovedAndLeftNode node -> Trie(node, count - 1, eqComparer)
+            | RemovedAndLeftNode node -> Trie (node, count - 1, eqComparer)
             | NothingLeft -> Empty eqComparer
-            
+
     let filter predicate hamt =
         match hamt with
         | Empty _ -> hamt
-        | Trie(root, count, eqComparer) ->
+        | Trie (root, count, eqComparer) ->
             match Node.filter predicate root with
             | NothingRemoved -> hamt
             | AllRemoved _ -> Empty eqComparer
             | NodeLeft (node, removedCount) -> Trie (node, count - removedCount, eqComparer)
-            
+
     let exists predicate hamt =
         match hamt with
         | Empty _ -> false
         | Trie (root, _, _) -> Node.exists predicate root
 
+    let forall predicate hamt =
+        match hamt with
+        | Empty _ -> true
+        | Trie (root, _, _) -> Node.forall predicate root
+
+    let iter action hamt =
+        match hamt with
+        | Empty _ -> ()
+        | Trie (root, _, _) -> Node.iter action root
+
+    let map mapper hamt =
+        match hamt with
+        | Empty _ -> hamt
+        | Trie (root, count, eqComparer) -> Trie (Node.map mapper root, count, eqComparer)
+
     let toSeq hamt =
         match hamt with
         | Empty _ -> Seq.empty
-        | Trie(root, _, _) -> Node.toSeq root
+        | Trie (root, _, _) -> Node.toSeq root
 
     let toSeqOfPairs hamt =
         match hamt with
         | Empty _ -> Seq.empty
-        | Trie(root, _, _) -> Node.toSeqOfPairs root
+        | Trie (root, _, _) -> Node.toSeqOfPairs root
 
     let keys hamt =
         match hamt with
         | Empty _ -> Seq.empty
-        | Trie(root, _, _) -> Node.keys root
+        | Trie (root, _, _) -> Node.keys root
 
     let findAndSet k f h = //this group of functions can be optimized by doing it in the node level
         let x = find k h
@@ -164,13 +182,14 @@ module Hamt =
         match maybeFind k h with
         | Some value -> (Some value, remove value h)
         | None -> None, h
-        
-    let ofSeq entries = Helper.ofSeq empty entries 
-        
+
+    let ofSeq entries = Helper.ofSeq empty entries
+
     let ofSeqStructural entries = Helper.ofSeq emptyStructural entries
-    
-    let ofSeqWith eqComparer entries = Helper.ofSeq (emptyWith eqComparer) entries
-    
+
+    let ofSeqWith eqComparer entries =
+        Helper.ofSeq (emptyWith eqComparer) entries
+
     module Lens =
 
         let inline _key k = find k, add k

@@ -102,12 +102,23 @@ module internal Hamt =
                 | [] -> entries
 
             loop [] false entries
-            
-        let rec exists predicate = function
-            | KVEntry (key, value)::xs when predicate key value -> true
-            | _::xs -> exists predicate xs
+
+        let rec exists predicate =
+            function
+            | KVEntry (key, value) :: xs -> predicate key value || exists predicate xs
             | [] -> false
-            
+
+        let rec forall predicate =
+            function
+            | (KVEntry (key, value)) :: xs -> predicate key value && forall predicate xs
+            | [] -> true
+
+        let rec iter action =
+            function
+            | KVEntry (key, value) :: xs ->
+                action key value
+                iter action xs
+            | [] -> ()
 
     module Node =
 
@@ -287,7 +298,8 @@ module internal Hamt =
                 else
                     NotFound
 
-        let rec filter predicate = function
+        let rec filter predicate =
+            function
             | Leaf (KVEntry (key, value)) when predicate key value -> NothingRemoved
             | Leaf _ -> AllRemoved 1
             | LeafWithCollisions entries ->
@@ -360,8 +372,9 @@ module internal Hamt =
                     NodeLeft (nodeLeft, totalRemovedCount)
 
             loopOverChildren bitmap bitmap 0 [] 0 0
-            
-        let rec exists predicate = function
+
+        let rec exists predicate =
+            function
             | Leaf (KVEntry (key, value)) -> predicate key value
             | LeafWithCollisions entries -> Collision.exists predicate entries
             | Branch (_, children) ->
@@ -371,7 +384,44 @@ module internal Hamt =
                         exists predicate child || loopOverChildren (index + 1)
                     else
                         false
+
                 loopOverChildren 0
+
+        let rec forall predicate =
+            function
+            | Leaf (KVEntry (key, value)) -> predicate key value
+            | LeafWithCollisions entries -> Collision.forall predicate entries
+            | Branch (_, children) ->
+                let rec loopOverChildren index =
+                    if index < children.Length then
+                        let child = children[index]
+                        forall predicate child && loopOverChildren (index + 1)
+                    else
+                        true
+
+                loopOverChildren 0
+
+        let rec iter action =
+            function
+            | Leaf (KVEntry (key, value)) -> action key value
+            | LeafWithCollisions entries -> Collision.iter action entries
+            | Branch (_, children) ->
+                let rec loopOverChildren index =
+                    if index < children.Length then
+                        let child = children[index]
+                        iter action child
+                        loopOverChildren (index + 1)
+                    else
+                        ()
+
+                loopOverChildren 0
+
+        let rec map mapper =
+            function
+            | Leaf (KVEntry (key, value)) -> Leaf (KVEntry (key, mapper key value))
+            | LeafWithCollisions entries ->
+                LeafWithCollisions (List.map (fun (KVEntry (k, v)) -> KVEntry (k, mapper k v)) entries)
+            | Branch (bitmap, children) -> Branch (bitmap, Array.map (fun node -> map mapper node) children)
 
         let rec toSeq =
             function
