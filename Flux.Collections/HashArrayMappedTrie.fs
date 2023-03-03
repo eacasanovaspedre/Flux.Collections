@@ -140,6 +140,17 @@ module Hamt =
         | Empty _ -> hamt
         | Trie (root, count, eqComparer) -> Trie (Node.map mapper root, count, eqComparer)
 
+    let partition predicate hamt =
+        match hamt with
+        | Empty eqComparer -> hamt, Empty eqComparer
+        | Trie (root, count, eqComparer) ->
+            match Node.partition predicate root with
+            | NodeAccepted -> hamt, Empty eqComparer
+            | NodeRejected _ -> Empty eqComparer, hamt
+            | NodeSplit (acceptedPart, rejectedPart, rejectedEntryCount) ->
+                Trie (acceptedPart, count - rejectedEntryCount, eqComparer),
+                Trie (rejectedPart, rejectedEntryCount, eqComparer)
+
     let toSeq hamt =
         match hamt with
         | Empty _ -> Seq.empty
