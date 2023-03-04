@@ -1,14 +1,20 @@
 namespace Flux.Collections
 
 [<Struct>]
-type KeyNotFound<'K> = KeyNotFound of 'K
+type KeyNotFound<'K> = KeyNotFound of Key: 'K
 
-exception KeyNotFoundException of Msg: string * Key: obj KeyNotFound with
+exception KeyNotFoundException of Msg: string * KeyNotFound: obj KeyNotFound with
     override this.Message = this.Msg
 
     static member inline throw key =
         KeyNotFoundException ("Key not found in Hamt", KeyNotFound (upcast key))
         |> raise
+        
+[<Struct>]
+type EntryNotFound = EntryNotFound of Msg: string
+
+exception EntryNotFoundException of EntryNotFound: EntryNotFound with
+    override this.Message = match this.EntryNotFound with EntryNotFound msg -> msg
 
 namespace Flux.Collections.Internals
 
@@ -511,6 +517,30 @@ module internal Hamt =
 
             loopOverChildren bitmap bitmap bitmap 0 [] [] 0 0 0
 
+        let rec maybePick picker = function
+            | Leaf (KVEntry (key, value)) -> picker key value
+            | LeafWithCollisions entries ->
+                let rec maybePickFromList =
+                    function
+                    | KVEntry (key, value) :: xs ->
+                        match picker key value with
+                        | Some x -> Some x
+                        | None -> maybePickFromList xs
+                    | [] -> None
+
+                maybePickFromList entries
+            | Branch (_, children) ->
+                let rec loopOverChildren index =
+                    if index < children.Length then
+                        let child = children[index]
+                        match maybePick picker child with
+                        | Some x -> Some x
+                        | None -> loopOverChildren (index + 1)
+                    else
+                        None
+
+                loopOverChildren 0
+        
         let rec toSeq =
             function
             | Leaf entry -> Seq.singleton entry

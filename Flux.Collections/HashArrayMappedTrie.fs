@@ -150,6 +150,19 @@ module Hamt =
             | NodeSplit (acceptedPart, rejectedPart, rejectedEntryCount) ->
                 Trie (acceptedPart, count - rejectedEntryCount, eqComparer),
                 Trie (rejectedPart, rejectedEntryCount, eqComparer)
+                
+    let maybePick picker hamt =
+        match hamt with
+        | Empty _ -> None
+        | Trie (root, _, _) -> Node.maybePick picker root
+        
+    let pick picker hamt =
+        match hamt with
+        | Empty _ -> EntryNotFoundException (EntryNotFound $"Cannot 'pick' an item from an Empty Hamt.") |> raise
+        | Trie (root, _, _) ->
+            match Node.maybePick picker root with
+            | Some x -> x
+            | None -> EntryNotFoundException (EntryNotFound $"The supplied picker returned 'None' for every entry in this Hamt.") |> raise
 
     let toSeq hamt =
         match hamt with
