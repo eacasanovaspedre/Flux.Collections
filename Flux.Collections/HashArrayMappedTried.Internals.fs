@@ -9,12 +9,14 @@ exception KeyNotFoundException of Msg: string * KeyNotFound: obj KeyNotFound wit
     static member inline throw key =
         KeyNotFoundException ("Key not found in Hamt", KeyNotFound (upcast key))
         |> raise
-        
+
 [<Struct>]
 type EntryNotFound = EntryNotFound of Msg: string
 
 exception EntryNotFoundException of EntryNotFound: EntryNotFound with
-    override this.Message = match this.EntryNotFound with EntryNotFound msg -> msg
+    override this.Message =
+        match this.EntryNotFound with
+        | EntryNotFound msg -> msg
 
 namespace Flux.Collections.Internals
 
@@ -37,25 +39,6 @@ module internal Hamt =
 
     [<Struct>]
     type Prefix = Prefix of bits: uint32 * length: int<bit>
-
-    type AddOutcome =
-        | Added
-        | Replaced
-
-    type RemoveOutcome<'K, 'T> =
-        | NothingLeft
-        | RemovedAndLeftNode of Node<'K, 'T>
-        | NotFound
-
-    type FilterOutcome<'K, 'T> =
-        | NothingRemoved
-        | AllRemoved of RemovedCount: int
-        | NodeLeft of Node: Node<'K, 'T> * RemovedCount: int
-
-    type PartitionOutcome<'K, 'T> =
-        | NodeAccepted
-        | NodeRejected of RejectedEntriesCount: int
-        | NodeSplit of AcceptedPart: Node<'K, 'T> * RejectedPart: Node<'K, 'T> * RejectedEntriesCount: int
 
     module Key =
         open System.Collections.Generic
@@ -84,53 +67,6 @@ module internal Hamt =
         let inline collisionHash eqComparer entries =
             entries |> List.head |> KVEntry.key |> Key.uhash eqComparer
 
-        let insertOrReplace eqComparer entry entries =
-            let rec loop before =
-                function
-                | KVEntry (key, _) :: after when Key.equals eqComparer key (KVEntry.key entry) ->
-                    struct ((List.rev before) @ entry :: after, Replaced)
-                | x :: xs -> loop (x :: before) xs
-                | [] -> struct (entry :: before, Added)
-
-            loop [] entries
-
-        let removeIfExists eqComparer targetKey entries =
-            let rec loop before =
-                function
-                | KVEntry (key, _) :: after when Key.equals eqComparer key targetKey -> (List.rev before) @ after
-                | x :: xs -> loop (x :: before) xs
-                | [] -> entries
-
-            loop [] entries
-
-        let filter predicate entries =
-            let rec loop toKeep modified =
-                function
-                | entry :: xs when predicate (KVEntry.key entry) (KVEntry.value entry) ->
-                    loop (entry :: toKeep) modified xs
-                | _ :: xs -> loop toKeep true xs
-                | [] when modified -> List.rev toKeep
-                | [] -> entries
-
-            loop [] false entries
-
-        let rec exists predicate =
-            function
-            | KVEntry (key, value) :: xs -> predicate key value || exists predicate xs
-            | [] -> false
-
-        let rec forall predicate =
-            function
-            | KVEntry (key, value) :: xs -> predicate key value && forall predicate xs
-            | [] -> true
-
-        let rec iter action =
-            function
-            | KVEntry (key, value) :: xs ->
-                action key value
-                iter action xs
-            | [] -> ()
-
     module Node =
 
         open Prefix
@@ -157,7 +93,11 @@ module internal Hamt =
             let shift = min length (Bitmap.bitIndexBits<BitmapHolder> ())
             Prefix (rshift bits shift, length - shift)
 
-        let rec add eqComparer entry entryHash prefix node =
+        type PutOutcome =
+            | Added
+            | Replaced
+
+        let rec put eqComparer entry entryHash prefix node =
             match node with
             | Leaf oldEntry when Key.equals eqComparer (KVEntry.key entry) (KVEntry.key oldEntry) ->
                 struct (Leaf entry, Replaced)
@@ -165,31 +105,38 @@ module internal Hamt =
                 let oldHash = Key.uhash eqComparer (KVEntry.key oldEntry)
 
                 if entryHash = oldHash then
-                    LeafWithCollisions [ entry; oldEntry ], AddOutcome.Added
+                    LeafWithCollisions [ entry; oldEntry ], Added
                 else
                     let oldPrefix = currentLevelPrefixFromHash (length prefix) oldHash
+                    let branch = Branch (Bitmap.bit (childBitIndex oldPrefix), [| node |])
 
-                    Branch (Bitmap.bit (childBitIndex oldPrefix), [| node |])
-                    |> add eqComparer entry entryHash prefix
+                    put eqComparer entry entryHash prefix branch
             | LeafWithCollisions entries ->
                 let collisionHash = collisionHash eqComparer entries
 
                 if entryHash = collisionHash then
-                    let struct (newEntries, outcome) = insertOrReplace eqComparer entry entries
+                    let rec putOnList before =
+                        function
+                        | KVEntry (key, _) :: after when Key.equals eqComparer key (KVEntry.key entry) ->
+                            struct ((List.rev before) @ entry :: after, Replaced)
+                        | x :: xs -> putOnList (x :: before) xs
+                        | [] -> struct (entry :: entries, Added) //should I care about the order
+
+                    let struct (newEntries, outcome) = putOnList [] entries
                     LeafWithCollisions newEntries, outcome
                 else
                     let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash
                     let collisionBitIndex = childBitIndex collisionPrefix
 
                     Branch (Bitmap.bit collisionBitIndex, [| node |])
-                    |> add eqComparer entry entryHash prefix
+                    |> put eqComparer entry entryHash prefix
             | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix
                 let arrayIndex = childArrayIndex bitIndex bitmap
 
                 if containsChild bitIndex bitmap then
                     let struct (newChild, outcome) =
-                        add eqComparer entry entryHash (nextLayerPrefix prefix) children[arrayIndex]
+                        put eqComparer entry entryHash (nextLayerPrefix prefix) children[arrayIndex]
 
                     struct (Branch (bitmap, Array.put newChild arrayIndex children), outcome)
                 else
@@ -271,29 +218,42 @@ module internal Hamt =
                 else
                     None
 
+        type RemoveOutcome<'K, 'T> =
+            | NothingLeft
+            | RemovedAndLeftNode of Node<'K, 'T>
+            | NotFound
+
         let rec remove eqComparer targetKey targetHash prefix node =
             match node with
             | Leaf (KVEntry (key, _)) when Key.equals eqComparer key targetKey -> NothingLeft
             | Leaf _ -> NotFound
             | LeafWithCollisions entries when collisionHash eqComparer entries = targetHash ->
-                match removeIfExists eqComparer targetKey entries with
-                | newEntries when LanguagePrimitives.PhysicalEquality entries newEntries -> NotFound
-                | [ single ] -> RemovedAndLeftNode (Leaf single)
-                | moreThanOne -> RemovedAndLeftNode (LeafWithCollisions moreThanOne)
+
+                let rec removeFromList before =
+                    function
+                    | KVEntry (key, _) :: after when Key.equals eqComparer key targetKey ->
+                        match (List.rev before) @ after with
+                        | [ single ] -> RemovedAndLeftNode (Leaf single)
+                        | moreThanOne -> RemovedAndLeftNode (LeafWithCollisions moreThanOne)
+                    | x :: xs -> removeFromList (x :: before) xs
+                    | [] -> NotFound
+
+                removeFromList [] entries
             | LeafWithCollisions _ -> NotFound
             | Branch (bitmap, children) ->
                 let bitIndex = childBitIndex prefix
 
                 if containsChild bitIndex bitmap then
-                    let childArrayIndex = childArrayIndex bitIndex bitmap
+                    let arrayIndex = childArrayIndex bitIndex bitmap
                     let nextLayerPrefix = nextLayerPrefix prefix
-                    let child = children[childArrayIndex]
-                    let outcome = remove eqComparer targetKey targetHash nextLayerPrefix child
+
+                    let outcome =
+                        remove eqComparer targetKey targetHash nextLayerPrefix children[arrayIndex]
 
                     match outcome with
                     | NotFound -> NotFound
                     | RemovedAndLeftNode child ->
-                        RemovedAndLeftNode (Branch (bitmap, Array.put child childArrayIndex children))
+                        RemovedAndLeftNode (Branch (bitmap, Array.put child arrayIndex children))
                     | NothingLeft ->
                         if Array.length children = 1 then
                             NothingLeft
@@ -305,16 +265,29 @@ module internal Hamt =
                         //     RemovedAndLeftNode children[if childArrayIndex = 0 then 1 else 0]
                         else
                             let newBitmap = Bitmap.clearBit bitIndex bitmap
-                            RemovedAndLeftNode (Branch (newBitmap, Array.remove childArrayIndex children))
+                            RemovedAndLeftNode (Branch (newBitmap, Array.remove arrayIndex children))
                 else
                     NotFound
+
+        type FilterOutcome<'K, 'T> =
+            | NothingRemoved
+            | AllRemoved of RemovedCount: int
+            | NodeLeft of Node: Node<'K, 'T> * RemovedCount: int
 
         let rec filter predicate =
             function
             | Leaf (KVEntry (key, value)) when predicate key value -> NothingRemoved
             | Leaf _ -> AllRemoved 1
             | LeafWithCollisions entries ->
-                match Collision.filter predicate entries with
+                let rec filterFromList toKeep modified =
+                    function
+                    | entry :: xs when predicate (KVEntry.key entry) (KVEntry.value entry) ->
+                        filterFromList (entry :: toKeep) modified xs
+                    | _ :: xs -> filterFromList toKeep true xs
+                    | [] when modified -> List.rev toKeep
+                    | [] -> entries
+
+                match filterFromList [] false entries with
                 | newEntries when LanguagePrimitives.PhysicalEquality entries newEntries -> NothingRemoved
                 | [ single ] -> NodeLeft (Leaf single, entries.Length - 1)
                 | moreThanOneLeft ->
@@ -387,7 +360,13 @@ module internal Hamt =
         let rec exists predicate =
             function
             | Leaf (KVEntry (key, value)) -> predicate key value
-            | LeafWithCollisions entries -> Collision.exists predicate entries
+            | LeafWithCollisions entries ->
+                let rec existsInList predicate =
+                    function
+                    | KVEntry (key, value) :: xs -> predicate key value || existsInList predicate xs
+                    | [] -> false
+
+                existsInList predicate entries
             | Branch (_, children) ->
                 let rec loopOverChildren index =
                     if index < children.Length then
@@ -401,7 +380,13 @@ module internal Hamt =
         let rec forall predicate =
             function
             | Leaf (KVEntry (key, value)) -> predicate key value
-            | LeafWithCollisions entries -> Collision.forall predicate entries
+            | LeafWithCollisions entries ->
+                let rec forallInList predicate =
+                    function
+                    | KVEntry (key, value) :: xs -> predicate key value && forallInList predicate xs
+                    | [] -> true
+
+                forallInList predicate entries
             | Branch (_, children) ->
                 let rec loopOverChildren index =
                     if index < children.Length then
@@ -415,7 +400,15 @@ module internal Hamt =
         let rec iter action =
             function
             | Leaf (KVEntry (key, value)) -> action key value
-            | LeafWithCollisions entries -> Collision.iter action entries
+            | LeafWithCollisions entries ->
+                let rec iterList action =
+                    function
+                    | KVEntry (key, value) :: xs ->
+                        action key value
+                        iterList action xs
+                    | [] -> ()
+
+                iterList action entries
             | Branch (_, children) ->
                 let rec loopOverChildren index =
                     if index < children.Length then
@@ -433,6 +426,11 @@ module internal Hamt =
             | LeafWithCollisions entries ->
                 LeafWithCollisions (List.map (fun (KVEntry (k, v)) -> KVEntry (k, mapper k v)) entries)
             | Branch (bitmap, children) -> Branch (bitmap, Array.map (fun node -> map mapper node) children)
+
+        type PartitionOutcome<'K, 'T> =
+            | NodeAccepted
+            | NodeRejected of RejectedEntriesCount: int
+            | NodeSplit of AcceptedPart: Node<'K, 'T> * RejectedPart: Node<'K, 'T> * RejectedEntriesCount: int
 
         let rec partition predicate node =
             match node with
@@ -517,7 +515,8 @@ module internal Hamt =
 
             loopOverChildren bitmap bitmap bitmap 0 [] [] 0 0 0
 
-        let rec maybePick picker = function
+        let rec maybePick picker =
+            function
             | Leaf (KVEntry (key, value)) -> picker key value
             | LeafWithCollisions entries ->
                 let rec maybePickFromList =
@@ -533,6 +532,7 @@ module internal Hamt =
                 let rec loopOverChildren index =
                     if index < children.Length then
                         let child = children[index]
+
                         match maybePick picker child with
                         | Some x -> Some x
                         | None -> loopOverChildren (index + 1)
@@ -540,13 +540,16 @@ module internal Hamt =
                         None
 
                 loopOverChildren 0
-                
-        let rec fold folder state = function
+
+        let rec fold folder state =
+            function
             | Leaf (KVEntry (key, value)) -> folder state key value
             | LeafWithCollisions entries ->
-                let rec loopOverEntries state = function
-                    | KVEntry (key, value)::xs -> loopOverEntries (folder state key value) xs
+                let rec loopOverEntries state =
+                    function
+                    | KVEntry (key, value) :: xs -> loopOverEntries (folder state key value) xs
                     | [] -> state
+
                 loopOverEntries state entries
             | Branch (_, children) ->
                 let rec loopOverChildren state index =
@@ -554,8 +557,103 @@ module internal Hamt =
                         loopOverChildren (fold folder state children[index]) (index + 1)
                     else
                         state
+
                 loopOverChildren state 0
-        
+
+        type ChangeOutcome<'K, 'T> =
+            | Added of Node<'K, 'T>
+            | Replaced of Node<'K, 'T>
+            | NothingChanged
+            | NothingLeft
+            | RemovedAndLeftNode of Node<'K, 'T>
+
+        let rec change changer eqComparer targetKey targetHash prefix =
+            function
+            | Leaf (KVEntry (key, value)) when Key.equals eqComparer key targetKey ->
+                match changer (Some value) with
+                | Some newValue -> KVEntry (targetKey, newValue) |> Leaf |> Replaced
+                | None -> NothingLeft
+            | Leaf oldEntry as node ->
+                match changer None with
+                | Some value ->
+                    let entry = KVEntry (targetKey, value)
+                    let oldHash = Key.uhash eqComparer (KVEntry.key oldEntry)
+
+                    if targetHash = oldHash then
+                        [ entry; oldEntry ] |> LeafWithCollisions |> Added
+                    else
+                        let oldPrefix = currentLevelPrefixFromHash (length prefix) oldHash
+                        let branch = Branch (Bitmap.bit (childBitIndex oldPrefix), [| node |])
+                        let struct (branchWithEntry, _) = put eqComparer entry targetHash prefix branch
+                        Added branchWithEntry
+                | None -> NothingChanged
+            | LeafWithCollisions entries as node ->
+                let collisionHash = collisionHash eqComparer entries
+
+                if targetHash = collisionHash then
+                    let rec changeInList before =
+                        function
+                        | KVEntry (key, value) :: after when Key.equals eqComparer key targetKey ->
+                            match changer (Some value) with
+                            | Some newValue ->
+                                (List.rev before) @ (KVEntry (targetKey, newValue)) :: after
+                                |> LeafWithCollisions
+                                |> Replaced
+                            | None ->
+                                match (List.rev before) @ after with
+                                | [ single ] -> RemovedAndLeftNode (Leaf single)
+                                | moreThanOne -> RemovedAndLeftNode (LeafWithCollisions moreThanOne)
+                        | x :: xs -> changeInList (x :: before) xs
+                        | [] ->
+                            match changer None with
+                            | Some value -> Added (LeafWithCollisions ((KVEntry (targetKey, value)) :: entries))
+                            | None -> NothingChanged
+
+                    changeInList [] entries
+                else
+                    match changer None with
+                    | Some value ->
+                        let collisionPrefix = currentLevelPrefixFromHash (length prefix) collisionHash
+                        let collisionBitIndex = childBitIndex collisionPrefix
+
+                        let branch = Branch (Bitmap.bit collisionBitIndex, [| node |])
+
+                        let struct (branchWithEntry, _) =
+                            put eqComparer (KVEntry (targetKey, value)) targetHash prefix branch
+
+                        Added branchWithEntry
+                    | None -> NothingChanged
+            | Branch (bitmap, children) ->
+                let bitIndex = childBitIndex prefix
+                let arrayIndex = childArrayIndex bitIndex bitmap
+
+                if containsChild bitIndex bitmap then
+                    let outcome =
+                        change changer eqComparer targetKey targetHash (nextLayerPrefix prefix) children[arrayIndex]
+
+                    match outcome with
+                    | Added newChild -> Added (Branch (bitmap, Array.put newChild arrayIndex children))
+                    | Replaced newChild -> Replaced (Branch (bitmap, Array.put newChild arrayIndex children))
+                    | NothingLeft ->
+                        if children.Length = 1 then
+                            NothingLeft
+                        else
+                            let newBitmap = Bitmap.clearBit bitIndex bitmap
+                            RemovedAndLeftNode (Branch (newBitmap, Array.remove arrayIndex children))
+                    | NothingChanged -> NothingChanged
+                    | RemovedAndLeftNode child ->
+                        RemovedAndLeftNode (Branch (bitmap, Array.put child arrayIndex children))
+                else
+                    match changer None with
+                    | Some value ->
+                        Added (
+                            Branch (
+                                Bitmap.setBit bitIndex bitmap,
+                                Array.insert (Leaf (KVEntry (targetKey, value))) arrayIndex children
+                            )
+                        )
+                    | None -> NothingChanged
+
         let rec toSeq =
             function
             | Leaf entry -> Seq.singleton entry

@@ -2,6 +2,7 @@ namespace rec Flux.Collections
 
 open Flux.Collections.Internals.Hamt
 open System.Collections.Generic
+open Flux.Collections.Internals.Hamt.Node
 
 type Hamt<'K, 'V when 'K: equality> =
     private
@@ -45,7 +46,7 @@ module Hamt =
             let rec loop (enumerator: _ IEnumerator) hamt =
                 if enumerator.MoveNext () then
                     let k, v = enumerator.Current
-                    loop enumerator (add k v hamt)
+                    loop enumerator (put k v hamt)
                 else
                     hamt
 
@@ -69,15 +70,18 @@ module Hamt =
         | Empty _ -> 0
         | Trie (_, count, _) -> count
 
-    let add key value =
+    let put key value =
         function
         | Empty eqComparer -> Trie (Leaf (KVEntry (key, value)), 1, eqComparer)
         | Trie (root, count, eqComparer) ->
             let hash = Key.uhash eqComparer key
+            let prefix = Prefix.fullPrefixFromHash hash
 
-            match Node.add eqComparer (KVEntry (key, value)) hash (Prefix.fullPrefixFromHash hash) root with
-            | struct (newRoot, Added) -> Trie (newRoot, count + 1, eqComparer)
-            | struct (newRoot, Replaced) -> Trie (newRoot, count, eqComparer)
+            match Node.put eqComparer (KVEntry (key, value)) hash prefix root with
+            | struct (newRoot, PutOutcome.Added) -> Trie (newRoot, count + 1, eqComparer)
+            | struct (newRoot, PutOutcome.Replaced) -> Trie (newRoot, count, eqComparer)
+            
+    let inline add key value hamt = put key value hamt
 
     let containsKey key =
         function
@@ -107,9 +111,9 @@ module Hamt =
             let hash = Key.uhash eqComparer key
 
             match Node.remove eqComparer key hash (Prefix.fullPrefixFromHash hash) root with
-            | NotFound -> hamt
-            | RemovedAndLeftNode node -> Trie (node, count - 1, eqComparer)
-            | NothingLeft -> Empty eqComparer
+            | RemoveOutcome.NotFound -> hamt
+            | RemoveOutcome.RemovedAndLeftNode node -> Trie (node, count - 1, eqComparer)
+            | RemoveOutcome.NothingLeft -> Empty eqComparer
 
     let filter predicate hamt =
         match hamt with
@@ -150,7 +154,7 @@ module Hamt =
             | NodeSplit (acceptedPart, rejectedPart, rejectedEntryCount) ->
                 Trie (acceptedPart, count - rejectedEntryCount, eqComparer),
                 Trie (rejectedPart, rejectedEntryCount, eqComparer)
-                
+
     /// Folds over the bindings in the Hamt.
     /// Given that this an unordered collection, fold might not return the expected results if some order of application
     /// is expected. The function 'foldBack' is not provided for the same reason.
@@ -158,19 +162,41 @@ module Hamt =
         match hamt with
         | Empty _ -> initialState
         | Trie (root, _, _) -> Node.fold folder initialState root
-                
+
     let maybePick picker hamt =
         match hamt with
         | Empty _ -> None
         | Trie (root, _, _) -> Node.maybePick picker root
-        
+
     let pick picker hamt =
         match hamt with
-        | Empty _ -> EntryNotFoundException (EntryNotFound $"Cannot 'pick' an item from an Empty Hamt.") |> raise
+        | Empty _ ->
+            EntryNotFoundException (EntryNotFound $"Cannot 'pick' an item from an Empty Hamt.")
+            |> raise
         | Trie (root, _, _) ->
             match Node.maybePick picker root with
             | Some x -> x
-            | None -> EntryNotFoundException (EntryNotFound $"The supplied picker returned 'None' for every entry in this Hamt.") |> raise
+            | None ->
+                EntryNotFoundException (
+                    EntryNotFound $"The supplied picker returned 'None' for every entry in this Hamt."
+                )
+                |> raise
+                
+    let change key changer hamt =
+        match hamt with
+        | Empty eqComparer ->
+            match changer None with
+            | Some value -> Trie (Leaf (KVEntry (key, value)), 1, eqComparer)
+            | None -> hamt
+        | Trie (root, count, eqComparer) ->
+            let hash = Key.uhash eqComparer key
+            let prefix = Prefix.fullPrefixFromHash hash
+            match Node.change changer eqComparer key hash prefix root with
+            | Added newRoot -> Trie (newRoot, count + 1, eqComparer)
+            | Replaced newRoot -> Trie (newRoot, count, eqComparer)
+            | NothingChanged -> hamt
+            | RemovedAndLeftNode newRoot -> Trie (newRoot, count - 1, eqComparer)
+            | NothingLeft -> Empty eqComparer
 
     let toSeq hamt =
         match hamt with
@@ -187,7 +213,7 @@ module Hamt =
         | Empty _ -> Seq.empty
         | Trie (root, _, _) -> Node.keys root
 
-    let findAndSet k f h = //this group of functions can be optimized by doing it in the node level
+    let findAndSet k f h =
         let x = find k h
         add k (f x) h
 
