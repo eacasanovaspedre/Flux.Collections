@@ -151,6 +151,14 @@ module Hamt =
                 Trie (acceptedPart, count - rejectedEntryCount, eqComparer),
                 Trie (rejectedPart, rejectedEntryCount, eqComparer)
                 
+    /// Folds over the bindings in the Hamt.
+    /// Given that this an unordered collection, fold might not return the expected results if some order of application
+    /// is expected. The function 'foldBack' is not provided for the same reason.
+    let fold folder initialState hamt =
+        match hamt with
+        | Empty _ -> initialState
+        | Trie (root, _, _) -> Node.fold folder initialState root
+                
     let maybePick picker hamt =
         match hamt with
         | Empty _ -> None

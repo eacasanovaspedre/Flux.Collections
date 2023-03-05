@@ -540,6 +540,21 @@ module internal Hamt =
                         None
 
                 loopOverChildren 0
+                
+        let rec fold folder state = function
+            | Leaf (KVEntry (key, value)) -> folder state key value
+            | LeafWithCollisions entries ->
+                let rec loopOverEntries state = function
+                    | KVEntry (key, value)::xs -> loopOverEntries (folder state key value) xs
+                    | [] -> state
+                loopOverEntries state entries
+            | Branch (_, children) ->
+                let rec loopOverChildren state index =
+                    if index < children.Length then
+                        loopOverChildren (fold folder state children[index]) (index + 1)
+                    else
+                        state
+                loopOverChildren state 0
         
         let rec toSeq =
             function
