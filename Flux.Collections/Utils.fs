@@ -39,6 +39,18 @@ module internal Array =
         |> blit arr 0 0 index
         |> blit arr (index + 1) index (Array.length arr - index - 1)
 
+    module Unsafe =
+
+        let inline ofListWithKnownSize count list = 
+            let array = Array.zeroCreate count
+            let rec loop index list =
+                if index < array.Length then
+                    array[index] <- List.head list
+                    loop (index + 1) (List.tail list)
+                else
+                    array
+            loop 0 list
+
 [<Struct>]
 type KVEntry<'K, 'T> = KVEntry of key: 'K * value: 'T
 

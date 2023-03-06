@@ -2,7 +2,6 @@
 #nowarn "60"#nowarn "69" // Interface implementations in augmentations are now deprecated. Interface implementations should be given on the initial declaration of a type.
 namespace Flux.Collections
 
-open System.Collections.Generic
 
 exception IncompatibleMergeException of string
 
