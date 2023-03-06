@@ -1,7 +1,8 @@
 namespace rec Flux.Collections
 
-open Flux.Collections.Internals.HamtMap
 open System.Collections.Generic
+open Flux.Collections.Internals.Hamt
+open Flux.Collections.Internals.HamtMap
 open Flux.Collections.Internals.HamtMap.Node
 
 /// Hash Array Mapped Trie
@@ -10,20 +11,19 @@ type HamtMap<'K, 'V when 'K: equality> =
     | Empty of Comparer: IEqualityComparer<'K>
     | Trie of Root: Node<'K, 'V> * Count: int * Comparer: IEqualityComparer<'K>
 
-    interface IReadOnlyDictionary<'K, 'V> with
-
+    interface IEnumerable<KeyValuePair<'K, 'V>> with
         member this.GetEnumerator() : IEnumerator<KeyValuePair<'K, 'V>> =
-            this
-            |> HamtMap.toSeq
-            |> Seq.map (fun entry -> KeyValuePair (KVEntry.key entry, KVEntry.value entry))
-            |> Enumerable.enumerator
+            this |> HamtMap.toSeq |> Enumerable.enumerator
 
         member this.GetEnumerator() : System.Collections.IEnumerator =
-            upcast (Enumerable.enumerator (this :> IEnumerable<_>))
+            Enumerable.enumerator (this :> IEnumerable<_>)
+
+    interface IReadOnlyCollection<KeyValuePair<'K, 'V>> with
+        member this.Count = HamtMap.count this
+
+    interface IReadOnlyDictionary<'K, 'V> with
 
         member this.ContainsKey key = HamtMap.containsKey key this
-
-        member this.Count = HamtMap.count this
 
         member this.Item
             with get key = HamtMap.find key this
@@ -70,36 +70,38 @@ module HamtMap =
         function
         | Empty _ -> 0
         | Trie (_, count, _) -> count
+        
+    let inline size hamt = count hamt
 
-    let put key value =
-        function
-        | Empty eqComparer -> Trie (Leaf (KVEntry (key, value)), 1, eqComparer)
+    let put key value hamt =
+        match hamt with
+        | Empty eqComparer -> Trie (Leaf (KeyValuePair (key, value)), 1, eqComparer)
         | Trie (root, count, eqComparer) ->
             let hash = Key.uhash eqComparer key
             let prefix = Prefix.fullPrefixFromHash hash
 
-            match Node.put eqComparer (KVEntry (key, value)) hash prefix root with
-            | struct (newRoot, PutOutcome.Added) -> Trie (newRoot, count + 1, eqComparer)
-            | struct (newRoot, PutOutcome.Replaced) -> Trie (newRoot, count, eqComparer)
+            match Node.put eqComparer (KeyValuePair (key, value)) hash prefix root with
+            | PutOutcome.AddedTo newRoot -> Trie (newRoot, count + 1, eqComparer)
+            | PutOutcome.ReplacedIn newRoot -> Trie (newRoot, count, eqComparer)
 
     let inline add key value hamt = put key value hamt
 
-    let containsKey key =
-        function
+    let containsKey key hamt =
+        match hamt with
         | Empty _ -> false
         | Trie (root, _, eqComparer) ->
             let hash = Key.uhash eqComparer key
             Node.containsKey eqComparer key hash (Prefix.fullPrefixFromHash hash) root
 
-    let maybeFind key =
-        function
+    let maybeFind key hamt =
+        match hamt with
         | Empty _ -> None
         | Trie (root, _, eqComparer) ->
             let hash = Key.uhash eqComparer key
             Node.maybeFind eqComparer key hash (Prefix.fullPrefixFromHash hash) root
 
-    let find key =
-        function
+    let find key hamt=
+        match hamt with
         | Empty _ -> KeyNotFoundException.throw key
         | Trie (root, _, eqComparer) ->
             let hash = Key.uhash eqComparer key
@@ -113,7 +115,7 @@ module HamtMap =
 
             match Node.remove eqComparer key hash (Prefix.fullPrefixFromHash hash) root with
             | RemoveOutcome.NotFound -> hamt
-            | RemoveOutcome.RemovedAndLeftNode node -> Trie (node, count - 1, eqComparer)
+            | RemoveOutcome.RemovedFrom node -> Trie (node, count - 1, eqComparer)
             | RemoveOutcome.NothingLeft -> Empty eqComparer
 
     let filter predicate hamt =
@@ -187,17 +189,17 @@ module HamtMap =
         match hamt with
         | Empty eqComparer ->
             match changer None with
-            | Some value -> Trie (Leaf (KVEntry (key, value)), 1, eqComparer)
+            | Some value -> Trie (Leaf (KeyValuePair (key, value)), 1, eqComparer)
             | None -> hamt
         | Trie (root, count, eqComparer) ->
             let hash = Key.uhash eqComparer key
             let prefix = Prefix.fullPrefixFromHash hash
 
             match Node.change changer eqComparer key hash prefix root with
-            | Added newRoot -> Trie (newRoot, count + 1, eqComparer)
-            | Replaced newRoot -> Trie (newRoot, count, eqComparer)
+            | AddedTo newRoot -> Trie (newRoot, count + 1, eqComparer)
+            | ReplacedIn newRoot -> Trie (newRoot, count, eqComparer)
             | NothingChanged -> hamt
-            | RemovedAndLeftNode newRoot -> Trie (newRoot, count - 1, eqComparer)
+            | RemovedFrom newRoot -> Trie (newRoot, count - 1, eqComparer)
             | NothingLeft -> Empty eqComparer
 
     let toSeq hamt =

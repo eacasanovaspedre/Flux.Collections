@@ -34,49 +34,68 @@ let inline nonStructuralEqualityComparerForIEquatable<'T when 'T: equality and '
             | _, null
             | null, _ -> false
             | _ -> x.Equals y (* IEquatable Equals*) }
+    
+module EqualityComparers =
+    let int32_ = HashIdentity.NonStructural<int32>
+    let string_ = HashIdentity.NonStructural<string>
+    let Guid_ = HashIdentity.NonStructural<Guid>
+    let uint32_ = HashIdentity.NonStructural<uint32>
+    let int64_ = HashIdentity.NonStructural<int64>
+    let uint64_ = HashIdentity.NonStructural<uint64>
+    let bool_ = HashIdentity.NonStructural<bool>
+    let byte_ = HashIdentity.NonStructural<byte>
+    let char_ = HashIdentity.NonStructural<char>
+    let sbyte_ = HashIdentity.NonStructural<sbyte>
+    let int16_ = HashIdentity.NonStructural<int16>
+    let nativeint_ = HashIdentity.NonStructural<nativeint>
+    let unativeint_ = HashIdentity.NonStructural<unativeint>
+    let uint16_ = HashIdentity.NonStructural<uint16>
+    let float_ = HashIdentity.NonStructural<float>
+    let float32_ = HashIdentity.NonStructural<float32>
+    let decimal_ = HashIdentity.NonStructural<decimal>
 
 let selectStructuralEqualityComparer<'T when 'T: equality> =
     match typeof<'T> with
     //Primitive types  is not structural and is a known type relatively common as a key in a Dictionary it makes no sense
     //to try to create an structural equality comparer
-    | ty when typeof<int32>.Equals ty -> HashIdentity.NonStructural<int32> :?> IEqualityComparer<'T>
-    | ty when typeof<string>.Equals ty -> HashIdentity.NonStructural<string> :?> IEqualityComparer<'T>
-    | ty when typeof<Guid>.Equals ty -> HashIdentity.NonStructural<Guid> :?> IEqualityComparer<'T>
-    | ty when typeof<uint32>.Equals ty -> HashIdentity.NonStructural<uint32> :?> IEqualityComparer<'T>
-    | ty when typeof<int64>.Equals ty -> HashIdentity.NonStructural<int64> :?> IEqualityComparer<'T>
-    | ty when typeof<uint64>.Equals ty -> HashIdentity.NonStructural<uint64> :?> IEqualityComparer<'T>
-    | ty when typeof<bool>.Equals ty -> HashIdentity.NonStructural<bool> :?> IEqualityComparer<'T>
-    | ty when typeof<byte>.Equals ty -> HashIdentity.NonStructural<byte> :?> IEqualityComparer<'T>
-    | ty when typeof<char>.Equals ty -> HashIdentity.NonStructural<char> :?> IEqualityComparer<'T>
-    | ty when typeof<sbyte>.Equals ty -> HashIdentity.NonStructural<sbyte> :?> IEqualityComparer<'T>
-    | ty when typeof<int16>.Equals ty -> HashIdentity.NonStructural<int16> :?> IEqualityComparer<'T>
-    | ty when typeof<nativeint>.Equals ty -> HashIdentity.NonStructural<nativeint> :?> IEqualityComparer<'T>
-    | ty when typeof<unativeint>.Equals ty -> HashIdentity.NonStructural<unativeint> :?> IEqualityComparer<'T>
-    | ty when typeof<uint16>.Equals ty -> HashIdentity.NonStructural<uint16> :?> IEqualityComparer<'T>
-    | ty when typeof<float>.Equals ty -> HashIdentity.NonStructural<float> :?> IEqualityComparer<'T>
-    | ty when typeof<float32>.Equals ty -> HashIdentity.NonStructural<float32> :?> IEqualityComparer<'T>
-    | ty when typeof<decimal>.Equals ty -> HashIdentity.NonStructural<decimal> :?> IEqualityComparer<'T>
+    | ty when typeof<int32>.Equals ty -> EqualityComparers.int32_ :?> IEqualityComparer<'T>
+    | ty when typeof<string>.Equals ty -> EqualityComparers.string_ :?> IEqualityComparer<'T>
+    | ty when typeof<Guid>.Equals ty -> EqualityComparers.Guid_ :?> IEqualityComparer<'T>
+    | ty when typeof<uint32>.Equals ty -> EqualityComparers.uint32_ :?> IEqualityComparer<'T>
+    | ty when typeof<int64>.Equals ty -> EqualityComparers.int64_ :?> IEqualityComparer<'T>
+    | ty when typeof<uint64>.Equals ty -> EqualityComparers.uint64_ :?> IEqualityComparer<'T>
+    | ty when typeof<bool>.Equals ty -> EqualityComparers.bool_ :?> IEqualityComparer<'T>
+    | ty when typeof<byte>.Equals ty -> EqualityComparers.byte_ :?> IEqualityComparer<'T>
+    | ty when typeof<char>.Equals ty -> EqualityComparers.char_ :?> IEqualityComparer<'T>
+    | ty when typeof<sbyte>.Equals ty -> EqualityComparers.sbyte_ :?> IEqualityComparer<'T>
+    | ty when typeof<int16>.Equals ty -> EqualityComparers.int16_ :?> IEqualityComparer<'T>
+    | ty when typeof<nativeint>.Equals ty -> EqualityComparers.nativeint_ :?> IEqualityComparer<'T>
+    | ty when typeof<unativeint>.Equals ty -> EqualityComparers.unativeint_ :?> IEqualityComparer<'T>
+    | ty when typeof<uint16>.Equals ty -> EqualityComparers.uint16_ :?> IEqualityComparer<'T>
+    | ty when typeof<float>.Equals ty -> EqualityComparers.float_ :?> IEqualityComparer<'T>
+    | ty when typeof<float32>.Equals ty -> EqualityComparers.float32_ :?> IEqualityComparer<'T>
+    | ty when typeof<decimal>.Equals ty -> EqualityComparers.decimal_ :?> IEqualityComparer<'T>
     | _ -> HashIdentity.Structural<'T>
 
 let selectNonStructuralEqualityComparer<'T when 'T: equality> : IEqualityComparer<'T> =
     match typeof<'T> with
-    | ty when typeof<int32>.Equals ty -> HashIdentity.NonStructural<int32> :?> IEqualityComparer<'T>
-    | ty when typeof<string>.Equals ty -> HashIdentity.NonStructural<string> :?> IEqualityComparer<'T>
-    | ty when typeof<Guid>.Equals ty -> HashIdentity.NonStructural<Guid> :?> IEqualityComparer<'T>
-    | ty when typeof<uint32>.Equals ty -> HashIdentity.NonStructural<uint32> :?> IEqualityComparer<'T>
-    | ty when typeof<int64>.Equals ty -> HashIdentity.NonStructural<int64> :?> IEqualityComparer<'T>
-    | ty when typeof<uint64>.Equals ty -> HashIdentity.NonStructural<uint64> :?> IEqualityComparer<'T>
-    | ty when typeof<bool>.Equals ty -> HashIdentity.NonStructural<bool> :?> IEqualityComparer<'T>
-    | ty when typeof<byte>.Equals ty -> HashIdentity.NonStructural<byte> :?> IEqualityComparer<'T>
-    | ty when typeof<char>.Equals ty -> HashIdentity.NonStructural<char> :?> IEqualityComparer<'T>
-    | ty when typeof<sbyte>.Equals ty -> HashIdentity.NonStructural<sbyte> :?> IEqualityComparer<'T>
-    | ty when typeof<int16>.Equals ty -> HashIdentity.NonStructural<int16> :?> IEqualityComparer<'T>
-    | ty when typeof<nativeint>.Equals ty -> HashIdentity.NonStructural<nativeint> :?> IEqualityComparer<'T>
-    | ty when typeof<unativeint>.Equals ty -> HashIdentity.NonStructural<unativeint> :?> IEqualityComparer<'T>
-    | ty when typeof<uint16>.Equals ty -> HashIdentity.NonStructural<uint16> :?> IEqualityComparer<'T>
-    | ty when typeof<float>.Equals ty -> HashIdentity.NonStructural<float> :?> IEqualityComparer<'T>
-    | ty when typeof<float32>.Equals ty -> HashIdentity.NonStructural<float32> :?> IEqualityComparer<'T>
-    | ty when typeof<decimal>.Equals ty -> HashIdentity.NonStructural<decimal> :?> IEqualityComparer<'T>
+    | ty when typeof<int32>.Equals ty -> EqualityComparers.int32_ :?> IEqualityComparer<'T>
+    | ty when typeof<string>.Equals ty -> EqualityComparers.string_ :?> IEqualityComparer<'T>
+    | ty when typeof<Guid>.Equals ty -> EqualityComparers.Guid_ :?> IEqualityComparer<'T>
+    | ty when typeof<uint32>.Equals ty -> EqualityComparers.uint32_ :?> IEqualityComparer<'T>
+    | ty when typeof<int64>.Equals ty -> EqualityComparers.int64_ :?> IEqualityComparer<'T>
+    | ty when typeof<uint64>.Equals ty -> EqualityComparers.uint64_ :?> IEqualityComparer<'T>
+    | ty when typeof<bool>.Equals ty -> EqualityComparers.bool_ :?> IEqualityComparer<'T>
+    | ty when typeof<byte>.Equals ty -> EqualityComparers.byte_ :?> IEqualityComparer<'T>
+    | ty when typeof<char>.Equals ty -> EqualityComparers.char_ :?> IEqualityComparer<'T>
+    | ty when typeof<sbyte>.Equals ty -> EqualityComparers.sbyte_ :?> IEqualityComparer<'T>
+    | ty when typeof<int16>.Equals ty -> EqualityComparers.int16_ :?> IEqualityComparer<'T>
+    | ty when typeof<nativeint>.Equals ty -> EqualityComparers.nativeint_ :?> IEqualityComparer<'T>
+    | ty when typeof<unativeint>.Equals ty -> EqualityComparers.unativeint_ :?> IEqualityComparer<'T>
+    | ty when typeof<uint16>.Equals ty -> EqualityComparers.uint16_ :?> IEqualityComparer<'T>
+    | ty when typeof<float>.Equals ty -> EqualityComparers.float_ :?> IEqualityComparer<'T>
+    | ty when typeof<float32>.Equals ty -> EqualityComparers.float32_ :?> IEqualityComparer<'T>
+    | ty when typeof<decimal>.Equals ty -> EqualityComparers.decimal_ :?> IEqualityComparer<'T>
     //For IEquatable types we create a IEqualityComparer that uses the interface Equals
     | ty when ty.IsAssignableTo typeof<IEquatable<'T>> ->
         let method =

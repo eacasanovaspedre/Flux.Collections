@@ -12,9 +12,9 @@ type ListMap () =
     let map mapper list =
         let rec loopOverEntries acc =
             function
-            | KVEntry (key, value) :: xs ->
+            | struct (key, value) :: xs ->
                 let newValue = mapper key value
-                let newEntry = KVEntry (key, newValue)
+                let newEntry = struct (key, newValue)
                 loopOverEntries (newEntry :: acc) xs
             | [] -> List.rev acc
         loopOverEntries [] list
@@ -26,12 +26,12 @@ type ListMap () =
     [<GlobalSetup>]
     member x.Setup() =
         x.Map <- if DateTime.Now.Millisecond % 2 = 0 then (fun k v -> k + v) else (fun k v -> v - k)
-        x.Dataset <- List.init 10000 (fun x -> KVEntry(x, x * 2))
+        x.Dataset <- List.init 10000 (fun x -> struct (x, x * 2))
         
     [<Benchmark(Baseline = true)>]
     member x.Std() =
         x.Dataset
-        |> List.map (fun (KVEntry (k, v)) -> x.Map k v)
+        |> List.map (fun (struct (k, v)) -> x.Map k v)
         |> List.head
         
     [<Benchmark>]
