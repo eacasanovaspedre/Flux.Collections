@@ -15,9 +15,12 @@
     <Compile Include="RealTimeQueue.fs" />
     <Compile Include="SkewBinaryRandomAccessList.fs" />
     <Compile Include="SkewBinomialHeap.fs" />
-    <Compile Include="HashArrayMappedTried.Internals.fs" />
+    <Compile Include="HashArrayMappedTrie.Common.fs" />
     <Compile Include="HashArrayMappedTrie.KeyEqualityComparison.fs" />
-    <Compile Include="HashArrayMappedTrie.fs" />
+    <Compile Include="HashArrayMappedTrie.Internals.Set.fs" />
+    <Compile Include="HashArrayMappedTrie.Internals.Map.fs" />
+    <Compile Include="HashArrayMappedTrie.Set.fs" />
+    <Compile Include="HashArrayMappedTrie.Map.fs" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

@@ -1,3 +1,10 @@
+namespace Flux
+
+[<AutoOpen>]
+module internal Helpers =
+    
+    let inline impossibleCodeBranch () = failwith "This is supposed to be an impossible branch in the code. There is something very wrong if this exception was thrown."
+
 namespace Flux.Collections
 
 open System.Collections.Generic
@@ -50,20 +57,32 @@ module internal Array =
                 else
                     array
             loop 0 list
+            
+        let inline ofListWithKnownSizeRev count list = 
+            let array = Array.zeroCreate count
+            let rec loop index list =
+                if index >= 0 then
+                    array[index] <- List.head list
+                    loop (index - 1) (List.tail list)
+                else
+                    array
+            loop (array.Length - 1) list
 
-[<Struct>]
-type KVEntry<'K, 'T> = KVEntry of key: 'K * value: 'T
+module KeyValuePair =
 
-module KVEntry =
+    let inline key (pair: KeyValuePair<_, _>) = pair.Key
 
-    let inline key (KVEntry(k, _)) = k
+    let inline value (pair: KeyValuePair<_, _>) = pair.Value
 
-    let inline value (KVEntry(_, v)) = v
-
-    let inline asPair (KVEntry(k, v)) = k, v
+    let inline asTuple pair = key pair, value pair
 
     module Lens =
 
-        let inline _Key map f e = map (f (key e)) (fun x -> KVEntry(x, value e))
+        let inline _Key map f e = map (f (key e)) (fun x -> KeyValuePair(x, value e))
 
-        let inline _Value map f e = map (f (value e)) (fun x -> KVEntry(key x, x))
+        let inline _Value map f e = map (f (value e)) (fun x -> KeyValuePair(key x, x))
+        
+    [<AutoOpen>]
+    module ActivePattern =
+        
+        let (|KeyValuePair|) (pair: KeyValuePair<_, _>) = asTuple pair
