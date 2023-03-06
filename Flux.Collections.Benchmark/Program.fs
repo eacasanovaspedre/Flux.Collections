@@ -47,9 +47,5 @@ module Main =
     
     [<EntryPoint>]
     let main args =
-        // let entries = Seq.init 10000 id |> Seq.map (fun x -> x, x.ToString().Substring(0, 1)) |> Seq.toArray
-        // let hamt = entries |> Seq.fold (fun hamt (k, v) -> Hamt.add k v hamt) Hamt.empty |> Hamt.filter (fun k v -> k % 3 = 0)
-        // let hamt = hamt |> Hamt.map (fun x v -> v + $"%d{x}")
-        // printfn $"%A{hamt}"
         BenchmarkSwitcher.FromAssembly(Assembly.GetEntryAssembly()).Run(args) |> ignore
         0

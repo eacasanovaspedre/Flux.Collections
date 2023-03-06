@@ -24,7 +24,7 @@ open Flux
 open Flux.Collections
 open Flux.Bit
 
-module internal Hamt =
+module internal HamtMap =
 
 #if X64
     type BitmapHolder = Bitmap64

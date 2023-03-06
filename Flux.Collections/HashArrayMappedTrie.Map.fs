@@ -1,10 +1,11 @@
 namespace rec Flux.Collections
 
-open Flux.Collections.Internals.Hamt
+open Flux.Collections.Internals.HamtMap
 open System.Collections.Generic
-open Flux.Collections.Internals.Hamt.Node
+open Flux.Collections.Internals.HamtMap.Node
 
-type Hamt<'K, 'V when 'K: equality> =
+/// Hash Array Mapped Trie
+type HamtMap<'K, 'V when 'K: equality> =
     private
     | Empty of Comparer: IEqualityComparer<'K>
     | Trie of Root: Node<'K, 'V> * Count: int * Comparer: IEqualityComparer<'K>
@@ -13,32 +14,32 @@ type Hamt<'K, 'V when 'K: equality> =
 
         member this.GetEnumerator() : IEnumerator<KeyValuePair<'K, 'V>> =
             this
-            |> Hamt.toSeq
+            |> HamtMap.toSeq
             |> Seq.map (fun entry -> KeyValuePair (KVEntry.key entry, KVEntry.value entry))
             |> Enumerable.enumerator
 
         member this.GetEnumerator() : System.Collections.IEnumerator =
             upcast (Enumerable.enumerator (this :> IEnumerable<_>))
 
-        member this.ContainsKey key = Hamt.containsKey key this
+        member this.ContainsKey key = HamtMap.containsKey key this
 
-        member this.Count = Hamt.count this
+        member this.Count = HamtMap.count this
 
         member this.Item
-            with get key = Hamt.find key this
+            with get key = HamtMap.find key this
 
-        member this.Keys = Hamt.keys this
+        member this.Keys = HamtMap.keys this
 
         member this.TryGetValue(key: 'K, value: byref<'V>) : bool =
-            match Hamt.maybeFind key this with
+            match HamtMap.maybeFind key this with
             | Some v ->
                 value <- v
                 true
             | None -> false
 
-        member this.Values = this |> Hamt.keys |> Seq.map (fun k -> Hamt.find k this)
+        member this.Values = this |> HamtMap.keys |> Seq.map (fun k -> HamtMap.find k this)
 
-module Hamt =
+module HamtMap =
 
     module private Helper =
 
@@ -53,12 +54,12 @@ module Hamt =
             loop (entries.GetEnumerator ()) emptyHamt
 
     let emptyStructural<'K, 'V when 'K: equality> =
-        Hamt<'K, 'V>.Empty KeyEqualityComparison.selectStructuralEqualityComparer
+        HamtMap<'K, 'V>.Empty KeyEqualityComparison.selectStructuralEqualityComparer
 
     let empty<'K, 'V when 'K: equality> =
-        Hamt<'K, 'V>.Empty KeyEqualityComparison.selectNonStructuralEqualityComparer<'K>
+        HamtMap<'K, 'V>.Empty KeyEqualityComparison.selectNonStructuralEqualityComparer<'K>
 
-    let emptyWith comparer = Hamt<'K, 'V>.Empty comparer
+    let emptyWith comparer = HamtMap<'K, 'V>.Empty comparer
 
     let isEmpty hamt =
         match hamt with
