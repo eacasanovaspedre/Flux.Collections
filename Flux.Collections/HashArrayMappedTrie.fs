@@ -80,7 +80,7 @@ module Hamt =
             match Node.put eqComparer (KVEntry (key, value)) hash prefix root with
             | struct (newRoot, PutOutcome.Added) -> Trie (newRoot, count + 1, eqComparer)
             | struct (newRoot, PutOutcome.Replaced) -> Trie (newRoot, count, eqComparer)
-            
+
     let inline add key value hamt = put key value hamt
 
     let containsKey key =
@@ -181,7 +181,7 @@ module Hamt =
                     EntryNotFound $"The supplied picker returned 'None' for every entry in this Hamt."
                 )
                 |> raise
-                
+
     let change key changer hamt =
         match hamt with
         | Empty eqComparer ->
@@ -191,6 +191,7 @@ module Hamt =
         | Trie (root, count, eqComparer) ->
             let hash = Key.uhash eqComparer key
             let prefix = Prefix.fullPrefixFromHash hash
+
             match Node.change changer eqComparer key hash prefix root with
             | Added newRoot -> Trie (newRoot, count + 1, eqComparer)
             | Replaced newRoot -> Trie (newRoot, count, eqComparer)
@@ -212,34 +213,6 @@ module Hamt =
         match hamt with
         | Empty _ -> Seq.empty
         | Trie (root, _, _) -> Node.keys root
-
-    let findAndSet k f h =
-        let x = find k h
-        add k (f x) h
-
-    let maybeFindAndSet k f h =
-        match maybeFind k h with
-        | Some value -> add k (f value) h |> Some
-        | None -> None
-
-    let findAndSetSafe k f h =
-        match maybeFind k h with
-        | Some value -> add k (f value) h
-        | None -> h
-
-    let findAndRemove k h = //this group of functions can be optimized by doing it in the node level
-        let v = find k h
-        v, remove k h
-
-    let maybeFindAndRemove k h =
-        match maybeFind k h with
-        | Some value -> (value, remove value h) |> Some
-        | None -> None
-
-    let findAndRemoveSafe k h =
-        match maybeFind k h with
-        | Some value -> (Some value, remove value h)
-        | None -> None, h
 
     let ofSeq entries = Helper.ofSeq empty entries
 
