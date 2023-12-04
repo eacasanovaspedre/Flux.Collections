@@ -10,8 +10,8 @@ open Flux.Collections.Benchmark.Params.Maps
 
 [<Struct>]
 type FindDataset<'Key when 'Key: equality and 'Key: comparison> =
-    { HamtStructural: Hamt<'Key, string> Lazy
-      Hamt: Hamt<'Key, string> Lazy
+    { HamtStructural: HamtMap<'Key, string> Lazy
+      Hamt: HamtMap<'Key, string> Lazy
       FSharpMap: Map<'Key, string> Lazy
       DotnetMap: Dictionary<'Key, string> Lazy
       LookupKeys: 'Key array }
@@ -50,10 +50,10 @@ module FindDataset =
                yield fst entries[rnd.Next(entriesSize)] |]
 
     let hamtOfSeqStructural seq =
-        Seq.fold (fun hamt (k, v) -> Hamt.add k v hamt) Hamt.emptyStructural seq
+        Seq.fold (fun hamt (k, v) -> HamtMap.add k v hamt) HamtMap.emptyStructural seq
 
     let hamtOfSeq seq =
-        Seq.fold (fun hamt (k, v) -> Hamt.add k v hamt) Hamt.empty seq
+        Seq.fold (fun hamt (k, v) -> HamtMap.add k v hamt) HamtMap.empty seq
 
     let dotnetMapOfSeq seq =
         seq
@@ -134,34 +134,34 @@ type Find() =
         match x.Dataset with
         | Some(FindDataset'.IntKey { HamtStructural = hamt
                                      LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.StringKey { HamtStructural = hamt
                                         LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.GuidKey { HamtStructural = hamt
                                       LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.CustomClassStrKey { HamtStructural = hamt
                                                 LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.CustomStructStrKey { HamtStructural = hamt
                                                  LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | None -> failwith "Not initialized"
 
     [<Benchmark>]
     member x.Hamt() =
         match x.Dataset with
         | Some(FindDataset'.IntKey { Hamt = hamt; LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.StringKey { Hamt = hamt; LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.GuidKey { Hamt = hamt; LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.CustomClassStrKey { Hamt = hamt; LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | Some(FindDataset'.CustomStructStrKey { Hamt = hamt; LookupKeys = lookupKeys }) ->
-            FindDataset.findAllAndSum Hamt.find (hamt.Force()) lookupKeys
+            FindDataset.findAllAndSum HamtMap.find (hamt.Force()) lookupKeys
         | None -> failwith "Not initialized"
 
     [<Benchmark>]
@@ -212,9 +212,9 @@ module PutDataset =
                 map
             else
                 let key, value = entries[index]
-                Hamt.add key value map |> loop (index + 1)
+                HamtMap.add key value map |> loop (index + 1)
 
-        loop 0 Hamt.empty
+        loop 0 HamtMap.empty
         
     let insertOnHamtStructural entries =
         let rec loop index map =
@@ -222,9 +222,9 @@ module PutDataset =
                 map
             else
                 let key, value = entries[index]
-                Hamt.add key value map |> loop (index + 1)
+                HamtMap.add key value map |> loop (index + 1)
 
-        loop 0 Hamt.emptyStructural
+        loop 0 HamtMap.emptyStructural
 
     let insertOnFSharpMap entries =
         let rec loop index map =
