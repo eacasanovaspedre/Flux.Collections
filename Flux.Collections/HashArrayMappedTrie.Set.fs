@@ -16,9 +16,9 @@ type HamtSet<'E when 'E: equality> =
 module HamtSet =
 
     (*
-    For now these constructors cannot be used because the set operations (union, difference, intersection) be much more
-    expensive, since two sets could have different equality comparers and the hashes would not necessarily be identical
-    for the same element, locating those elements on different path in the trie for different sets
+    For now these constructors cannot be used because the set operations (union, difference, intersection) would be much
+    more expensive, since two sets could have different equality comparers and the hashes would not necessarily be
+    identical for the same element, locating those elements on different path in the trie for different sets
     
     let emptyStructural<'E when 'E: equality> =
         HamtSet<'E>.Empty KeyEqualityComparison.selectStructuralEqualityComparer
