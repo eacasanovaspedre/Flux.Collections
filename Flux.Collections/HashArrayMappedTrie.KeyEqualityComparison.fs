@@ -3,15 +3,24 @@ module internal Flux.Collections.KeyEqualityComparison
 
 open System
 open System.Collections.Generic
+open System.Reflection
 
-type Marker =
-    interface
-    end
+type ComparerHolder =
+    static member NonStructuralEqualityComparerForIEquatable<'T when 'T: equality and 'T :> IEquatable<'T>>() =
+        { new IEqualityComparer<'T> with
+            member _.GetHashCode x = NonStructuralComparison.hash x
 
-let thisModule = lazy typeof<Marker>.DeclaringType
+            member _.Equals(x, y) =
+                match box x, box y with
+                | null, null -> true
+                | _, null
+                | null, _ -> false
+                | _ -> x.Equals y (* IEquatable Equals*) }
 
 let nonStructuralEqualityComparerForIEquatableMethodInfo =
-    lazy thisModule.Value.GetMethod("nonStructuralEqualityComparerForIEquatable")
+    lazy
+        typeof<ComparerHolder>
+            .GetMethod ("NonStructuralEqualityComparerForIEquatable", BindingFlags.Static ||| BindingFlags.Public)
 
 let inline nonStructuralEqualityComparer<'T when 'T: equality> =
     { new IEqualityComparer<'T> with
@@ -24,17 +33,6 @@ let inline nonStructuralEqualityComparer<'T when 'T: equality> =
             | null, _ -> false
             | _ -> x.Equals y (* Object Equals*) }
 
-let inline nonStructuralEqualityComparerForIEquatable<'T when 'T: equality and 'T :> IEquatable<'T>> =
-    { new IEqualityComparer<'T> with
-        member _.GetHashCode x = NonStructuralComparison.hash x
-
-        member _.Equals(x, y) =
-            match box x, box y with
-            | null, null -> true
-            | _, null
-            | null, _ -> false
-            | _ -> x.Equals y (* IEquatable Equals*) }
-    
 module EqualityComparers =
     let int32_ = HashIdentity.NonStructural<int32>
     let string_ = HashIdentity.NonStructural<string>
@@ -97,9 +95,8 @@ let selectNonStructuralEqualityComparer<'T when 'T: equality> : IEqualityCompare
     | ty when typeof<float32>.Equals ty -> EqualityComparers.float32_ :?> IEqualityComparer<'T>
     | ty when typeof<decimal>.Equals ty -> EqualityComparers.decimal_ :?> IEqualityComparer<'T>
     //For IEquatable types we create a IEqualityComparer that uses the interface Equals
-    | ty when ty.IsAssignableTo typeof<IEquatable<'T>> ->
-        let method =
-            nonStructuralEqualityComparerForIEquatableMethodInfo.Value.MakeGenericMethod typeof<'T>
+    | ty when typeof<IEquatable<'T>>.IsAssignableFrom ty ->
+        let method = nonStructuralEqualityComparerForIEquatableMethodInfo.Value.MakeGenericMethod typeof<'T>
 
-        method.Invoke(null, [||]) :?> IEqualityComparer<'T>
+        method.Invoke (null, [||]) :?> IEqualityComparer<'T>
     | _ -> nonStructuralEqualityComparer<'T> //HashIdentity.NonStructural<'T> would force static member (=) constraint on 'T
