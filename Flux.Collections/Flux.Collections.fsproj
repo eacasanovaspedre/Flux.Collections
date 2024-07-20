@@ -4,11 +4,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>Flux.Collections</PackageId>
     <Version>$(PackageVersion)</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Enrique Casanovas</Authors>
     <Company>The Otter Side</Company>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\"/>
     <Compile Include="Utils.fs" />
     <Compile Include="Bit.fs" />
     <Compile Include="Bitmap.fs" />

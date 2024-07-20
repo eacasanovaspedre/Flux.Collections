@@ -14,7 +14,7 @@ module RTQueue =
                 match r with
                 | [ y ] when Stream.isEmpty f -> Stream.cons y acc
                 | y :: r' when Stream.isNotEmpty f ->
-                    let (x, f') = Stream.uncons f in Stream.cons x (rotate f' r' (Stream.cons y acc))
+                    let x, f' = Stream.uncons f in Stream.cons x (rotate f' r' (Stream.cons y acc))
                 | _ -> failwith "This should never happen"
 
         let rtQueue f b s =

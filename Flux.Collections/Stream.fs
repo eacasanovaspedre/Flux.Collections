@@ -31,7 +31,7 @@ module Stream =
 
         let inline isNil c =
             match c with
-            | Nil _ -> true
+            | Nil -> true
             | _ -> false
 
         let inline map f c =
@@ -548,7 +548,7 @@ module Stream =
     let ofArray array =
         let rec ofArray' i =
             suspended <| fun _ ->
-                if i < Array.length array then Cons(array.[i], ofArray' (i + 1)) else Nil
+                if i < Array.length array then Cons(array[i], ofArray' (i + 1)) else Nil
         ofArray' 0
 
     let toArray z =
@@ -557,7 +557,7 @@ module Stream =
         let rec toArray' i z =
             match cell z with
             | Cons(x, z') ->
-                array.[i] <- x
+                array[i] <- x
                 toArray' (i + 1) z'
             | Nil -> ()
         do toArray' 0 z
@@ -602,7 +602,7 @@ module Stream =
 
     let delayedFromPair f =
         suspended <| fun _ ->
-            let (h, t) = f() in Cons(h, t)
+            let h, t = f() in Cons(h, t)
 
     let delayed g = delayed g
 
@@ -625,7 +625,7 @@ type 'T Stream with
                         (typeof<'T Stream>, other.GetType(), "Can not compare these two different types"))
 
     interface System.IComparable<'T Stream> with
-        member this.CompareTo other = Stream.compare (LanguagePrimitives.GenericComparer) this other
+        member this.CompareTo other = Stream.compare LanguagePrimitives.GenericComparer this other
 
     interface System.IComparable with
         member this.CompareTo other =
@@ -647,7 +647,7 @@ type 'T Stream with
         member this.GetHashCode(comparer: System.Collections.IEqualityComparer) = Stream.computeHash comparer this
 
     interface System.IEquatable<Stream<'T>> with
-        member this.Equals other = Stream.areEqual (LanguagePrimitives.GenericEqualityERComparer) this other
+        member this.Equals other = Stream.areEqual LanguagePrimitives.GenericEqualityERComparer this other
 
     override this.Equals other =
         match other with
