@@ -70,7 +70,7 @@ module private NodeList =
     let rec update value index =
         function
         | Root(count, node) :: rest when index < count -> Root(count, Node.update value index count node) :: rest
-        | (Root(count, _) as x) :: rest -> x :: (update value (index - count) rest)
+        | Root(count, _) as x :: rest -> x :: (update value (index - count) rest)
         | [] -> invalidOp "Not enough elements"
 
     let rec skip skipCount =

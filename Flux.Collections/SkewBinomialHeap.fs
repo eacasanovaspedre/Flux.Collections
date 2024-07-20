@@ -61,8 +61,8 @@ module private SBHTreeRoot =
     let rec extractMinRoot descending =
         function
         | [ p ] -> (p, [])
-        | (Root(_, tree) as root) :: roots ->
-            let (Root(_, tree') as root', roots') = extractMinRoot descending roots
+        | Root(_, tree) as root :: roots ->
+            let Root(_, tree') as root', roots' = extractMinRoot descending roots
             if (SBHTree.item tree <= SBHTree.item tree') <> descending
             then root, roots
             else root', root :: roots'
@@ -79,9 +79,9 @@ module private SBHTreeRoot =
 
     let uncons descending roots =
         //find the root with the minimum value a return it along with the remaining roots
-        let (Root(rank, Node(x, aux, children)), roots') = extractMinRoot descending roots
+        let Root(rank, Node(x, aux, children)), roots' = extractMinRoot descending roots
         //reverse the children and set their ranks based on the parent's rank
-        let (_, reversed) =
+        let _, reversed =
             children |> List.fold (fun (rank, trees) tree -> rank - 1, Root(rank - 1, tree) :: trees) (rank, [])
         //merge the reversed children with the remaining trees
         let merged = mergeRoots descending reversed (normalize descending roots')
@@ -234,21 +234,21 @@ module SkewBinomialHeap =
     /// O(log n) - Returns the head element and tail. Throws if empty.
     let uncons ({ Count = count; Descending = descending; Roots = roots } as heap) =
         if isNotEmpty heap
-        then let (h, t) = SBHTreeRoot.uncons descending roots in (h, skewBinomialHeap (count - 1) descending t)
+        then let h, t = SBHTreeRoot.uncons descending roots in (h, skewBinomialHeap (count - 1) descending t)
         else invalidOp "Empty heap, no head and no tail"
 
     /// O(log n) - Returns Some (h, t) where h is the head and t is the tail.
     /// Returns None if the collection is empty.
     let maybeUncons ({ Count = count; Descending = descending; Roots = roots } as heap) =
         if isNotEmpty heap
-        then let (h, t) = SBHTreeRoot.uncons descending roots in Some(h, skewBinomialHeap (count - 1) descending t)
+        then let h, t = SBHTreeRoot.uncons descending roots in Some(h, skewBinomialHeap (count - 1) descending t)
         else None
 
     /// O(log n) - Returns Ok (h, t) where h is the head and t is the tail.
     /// Returns Error if the collection is empty.
     let tryUncons ({ Count = count; Descending = descending; Roots = roots } as heap) =
         if isNotEmpty heap
-        then let (h, t) = SBHTreeRoot.uncons descending roots in Ok(h, skewBinomialHeap (count - 1) descending t)
+        then let h, t = SBHTreeRoot.uncons descending roots in Ok(h, skewBinomialHeap (count - 1) descending t)
         else Error "Empty heap, no head and no tail"
 
     /// O(n * log n) - Returns and ordered list of the elements in the heap.
